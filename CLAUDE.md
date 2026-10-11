@@ -23,30 +23,34 @@ Friday, 3:14 pm. Sam writes "Mia — meet me at the old oak after the bell?" but
 
 ### Levels
 Story (9, unlocked in order): **class** Classroom 5B · **corridor** East Corridor · **library** · **canteen** · **lab** Chemistry Lab · **music** Music Room · **gym** · **boss** Main Hall (Principal Grimsby) · **yard** Schoolyard (the ending).
-Bonus (unlocked after the story): **art** Art Room (paint clouds tint and mix on the wings) · **roof** Rooftop at night (thermals, pigeons, meteors, telescope deck) · **bus** The Bus Home (moving bus, turns/brakes push you) · **town** The Town (Elm Street shops, cars, fountain, clock tower, park, Mia's house #14 — exit through her window).
+Bonus (unlocked after the story): **art** Art Room (paint clouds tint and mix on the wings) · **roof** Rooftop at night (thermals, pigeons, meteors, telescope deck) · **bus** The Bus Home (moving bus, turns/brakes push you) · **town** The Town (Elm Street shops, cars, fountain, clock tower, park, Mia's house #14 — exit through her window) · **party** Mia’s Party (garden behind #14: balloon arches, bouncy castle tagged `bounce`, barbecue-smoke thermal, piñata you can burst, dog Biscuit; land on the gift table next to Mia) · **home** Sam’s House (evening; loft bedroom, stairs, kitchen-soup steam thermal, ceiling-fan hazard, Mum/Dad/Gran/little sister Lily, cat + puppy Noodle; exit the front window to Mia in the street) · **rain** Rainy Day (reuses the yard build, then adds rain streaks, puddles + ripples, lightning/thunder, wind, umbrellas, ducks; rain makes the plane `wet` outside shelters — oak, bus stop, entrance canopy).
 Plus **Golden Hour** free flight, the **Course maker** (custom levels), **Daily flight**, **Marathon**.
 
 Each level def: `{ id, name, place, seed, gold, silver, ceil, outdoor?, bonus?, story:[4 lines], outro, build(L, b) }`. Stage kinds: `rings`, `hoops`, `pages`, `land`, `exit`. 3 hidden stars per level; medals by time (gold/silver par).
-**Boss:** Grimsby swings a butterfly net (dodge when raised) and slams the floor (stay high); 3 phases (grab notes → pillar loop → ring the bell).
+**Boss:** Grimsby swings a butterfly net (dodge when raised) and slams the floor (stay high); 4 phases (grab notes → pillar loop → free 3 planes from his drawer, double swings → ring the bell through the **paper storm**: 12 confiscated planes orbit the hall and knock you). `hp`/`maxHp` = 4; the door/bell open at `L.stage >= 4`.
 
 ### Crafts (Hangar) — each has a Gust ability
-Dart (speed boost) · Glider (soar, thermals ×2) · Swallow (dodge-roll dash, ignores swats) · Paper Boat (sails floors, can't fly) · Paper Ball (jump / ground-pound, bounces) · Spinner (maple seed, hovers).
+Dart (speed boost) · Glider (soar, thermals ×2) · Swallow (dodge-roll dash, ignores swats) · Paper Boat (sails floors, can't fly) · Paper Ball (jump / ground-pound, bounces) · Spinner (maple seed, hovers) · Crane (`flap`: each tap is a wing-beat lift, 0.26 s cooldown, 0.12 gust) · Hawk (`dive`: hold for a power dive, release for a swoop up proportional to dive time). New crafts go in `PLANES`, `CRAFTS`, `PT`, a `planeGeometry` branch and `CRAFT_LINES`; abilities are wrappers on `Flyer.prototype.updateArcade`/`update`.
 Skins unlock by stars and achievements; a **Decorator** (Hangar → ✎) adds stickers and doodles composited onto the paper texture (`Deco.tex`).
 
 ### People and life
 - `Person` objects with acts: talk, point, cheer, duck, shush, hi5, sleep, pass, catch… Bubbles via `say()`, each with a babble voice.
-- **Named classmates** `CAST` (Jake the joker, Priya the facts girl, Zoe Mia's best friend, Leo the catcher, Tom the sleeper, Ana the artist, Ollie the shy fan) placed per level by `CAST_IN`. **Teachers** `TEACHERS`/`TEACH_IN` (Ms. Hart, Mr. Ellis, Mrs. Okafor, Mrs. Bell, Mr. Petrenko, Mr. Lieu, Coach Brandt, Mr. Moss, Ms. Rivera, Dr. Sato, Gus the janitor) + Grimsby.
+- **Named classmates** `CAST` (Jake the joker, Priya the facts girl, Zoe Mia's best friend, Leo the catcher, Tom the sleeper, Ana the artist, Ollie the shy fan, **Nina** the new girl, **Ben** the inventor, **Rosa** the school-paper reporter) placed per level by `CAST_IN` (the queue only fills plain kids a build creates, so extra ids are harmless).
+- **Family & non-school people** have `p.who` ids (`mum`, `dad`, `gran`, `lily`, `mmum`, `mdad`) resolved by the wrapped `findSpeaker`/`spkName` (`EXTRA_NAMES`), so they can speak in cutscenes and choices.
+- **Animals:** `Cat` (sleeps, swipes), `Dog` (`dog(L,b,x,z,{box,name})`: chases the plane's shadow, barks, jumps and knocks a low plane), `Flock` (`flock(L,b,x,z,{duck,n,r})`: pigeons take off when you pass, ducks flap/quack/hop), `Hamster` (class 5B, “Nibbles”, wheel speeds up when you fly near), roof pigeons, `umbrellaFor(person, colour)`. **Teachers** `TEACHERS`/`TEACH_IN` (Ms. Hart, Mr. Ellis, Mrs. Okafor, Mrs. Bell, Mr. Petrenko, Mr. Lieu, Coach Brandt, Mr. Moss, Ms. Rivera, Dr. Sato, Gus the janitor) + Grimsby.
 - **Remember you** (`rel`): close fast passes raise a classmate's opinion, bumps/crashes lower it → fans cheer your name and relaunch you after a crash; grumpy ones try to catch you and throw you away.
 - **Social director** `Social`: conversations from `CONVOS`/`CONVOS_BY`, note passing, high-fives, sleepy kids, teacher shushes, cheer contagion.
-- **Talk content:** `LEVEL_CHAT` ambient lines, **Overheard** special lines (`SPECIALS` + `SP_MORE`, 10 per level, tied to moments like start/first stage/first star/trouble/finish/power-up/near miss/skim/craft swap/fly-by), **running jokes** `JOKES` (multi-part stories advancing once per level), `reactLine` comments on your craft/paint/speed.
+- **Talk content:** `LEVEL_CHAT` ambient lines, **Overheard** special lines (`SPECIALS` + `SP_MORE` + `SP_MORE2`, **20 per level**, index = `SP_AT` moment: start, stage, star, trouble, finish, power, near, skim, swap, flyby, star2, star3, uturn, crash2, fast, brake, clean (a minute without crashing), last (last stage), combo (×4), empty (gust meter empty); a new level needs all 20), **running jokes** `JOKES` (multi-part stories advancing once per level), `reactLine` comments on your craft/paint/speed.
 - **Mini-quests** `QUESTS` (deliver something between two people), **Mia side-story** `MIA_SPOTS` (find Mia off-route in 8 rooms → secret "Mia's notes").
 - **Cutscenes** `CUTS`: 4–5 lines before each level's story card, shown once, skippable, replayable.
+- **Dialogue choices** `CHOICES[levelId] = { who, q, opts:[{ t, who, r, rel, d, cb }] }`: after the last cutscene line Sam picks one of 3 replies; `rel` changes classmates' opinion (fans/grumpy), the reply is spoken, the story card shows “what Sam said”, and `cb` = `[who, line]` is said ~2.6 s into the level. Stored in `Store.data.choices`.
+- **Sam’s diary** `DIARY[levelId]`: a page per finished level (base line + the chosen option's `d`), shown on the results card and as a page in the Notebook. Stored in `Store.data.diary`.
 
 ### Systems
 Difficulty (Easy/Normal/Hardcore + Practice profile) · power-ups (Tailwind, Magnet, Shield) · skim bonus (fly close to surfaces) · **ghost** of best run with splits and top 5 · ~45 achievements + stats in **Sam's Notebook** (also lists Overheard lines and jokes) · Daily flight with a twist (`MODS`) · challenge modes on the story card (Normal / **Time attack** / **Iron paper**) · Marathon · 2-player split screen (race/co-op) · keyboard, mouse, touch, gamepad · per-level music themes (`THEMES`) · bloom post effect · settings for quality, camera, sensitivity, audio, etc.
 
 ### Save data (`Store.data`)
-settings, unlocked, best, skin, plane, stats, ach, heard, rel, quests, mia, jokes, top, deco, courses, daily, chal, cuts, marathonBest, mp, seenIntro. **When you add a field, default it on load** — old saves must keep working. Never rename the save key.
+settings, unlocked, best, skin, plane, stats, ach, heard, rel, quests, mia, jokes, top, deco, courses, daily, chal, cuts, marathonBest, mp, seenIntro, choices, diary (the last two are created lazily by `CH()`/`DI()`). **When you add a field, default it on load** — old saves must keep working. Never rename the save key.
 
 ## 4. Code map (`src.html`)
 Order: CSS → HTML overlays (title, menus/panels, HUD, touch controls) → one `<script type="module">`:
@@ -76,7 +80,8 @@ Order: CSS → HTML overlays (title, menus/panels, HUD, touch controls) → one 
   - helper functions (`kid`, `seated`, `adult`, `sprayer`) are reassigned to wrappers;
   - per-level additions: wrap a level def's `build` (`const _b = D.build; D.build = function(L, b){ _b.call(this, L, b); /* add people/lines */ };`);
   - per-frame logic: push a function to `b.dyn` inside a build.
-- **New level:** make a def object, `LEVELS.push(DEF)`; bonus levels need `bonus: true`. Ending logic checks `id === 'yard'` — never `LEVELS.length - 1`. Give it story lines, outro, specials, chatter, cast/teachers, a quest and a cutscene so it matches the rest.
+- **New level:** make a def object, `LEVELS.push(DEF)`; bonus levels need `bonus: true`. Ending logic checks `id === 'yard'` — never `LEVELS.length - 1`. Give it story lines, outro, 20 specials, chatter, cast/teachers, a quest, a cutscene, a `CHOICES` entry and a `DIARY` line so it matches the rest.
+- **Wrappers that loop over `LEVELS` only touch the levels that existed when they ran.** A level pushed later must call `v7wireL(DEF)` (cast queue, teacher queue, `LEVEL_CHAT`) — see party/home. A level can reuse another's build (`rain` calls the yard's wrapped build, then restyles it; `L.def.id` tells them apart).
 - **Content tables are keyed by level id** (`SPECIALS`, `SP_MORE`, `LEVEL_CHAT`, `CUTS`, `QUESTS`, `CAST_IN`, `TEACH_IN`, `THEMES`, `CONVOS_BY`): adding a level means adding an entry to each.
 - Keep the attract mode (title background) passive: it must not collect pickups (`Level.passive`).
 - Speech bubbles scale with camera distance; keep text short so they stay readable.
@@ -97,7 +102,9 @@ node run.js 0,9,12             # selected level indexes
 - Start levels with `Game.story(i, true)` (true = skip cutscene) then `Game.begin()`, otherwise scripts hang on the cutscene.
 - The Town is heavy in software GL — allow ~150 s before play; it's fine on a real GPU.
 - Other scripts are focused probes (social sim, specials, menus/phone layout at 390 px, multiplayer, decorator/course maker, challenge modes) — copy them as patterns. Look at screenshots they save to judge visuals.
-- Last known state: all 13 levels completable, no console errors.
+- `node v7.js [indexes]` screenshots the new levels along their route (and the boss at phase 4); `node v7ui.js [w h]` checks hangar, a cutscene choice, the story card, results diary and notebook (`390 844` for phone); `node par.js` measures each route against its gold par.
+- The sandbox's software GL runs game time ~10× slower than wall time: cutscenes take minutes unless a probe fast-forwards `Game.cut.t` (v7ui.js does). Run all 16 levels in two batches (`0,…,8` then `9,…,15`) to stay under the 10-minute command limit.
+- Last known state: all 16 levels completable, no console errors.
 
 ## 7. Publishing
 - Publish `src.html` with the Artifact tool to `https://claude.ai/artifact/ASWMKtcDZLsPkDhT4NVWuQ` (read it first from a new conversation — the tool requires a read before updating). Same URL every time.
@@ -132,4 +139,4 @@ node run.js 0,9,12             # selected level indexes
 - No external assets: textures, sounds and music are procedural.
 
 ## 10. Ideas to offer next
-Mia's birthday party level · Sam's house level · ghost races shared by code · photo mode · dialogue choices in cutscenes · voiced lines (TTS) · Sam's diary between levels · weather (rain, wind) · new boss phases · more crafts · accessibility (colour-blind, reduced motion, one-button mode) · tuning par times with real play.
+Ghost races shared by code · photo mode · voiced lines (TTS) · accessibility (colour-blind, reduced motion, one-button mode) · a snow day level · a school-fair level · a second boss (the vice principal) · Mia’s point of view chapter · choices that branch which rooms you visit · a pet you can befriend and carry notes · Rosa’s school paper as an in-game newspaper of your runs · tuning par times with real play data (current pars are evened out by route length only).

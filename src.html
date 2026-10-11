@@ -3409,16 +3409,16 @@ function cat(L, b, x, y, z, ry, c) { return new Cat(L, b, x, y, z, ry, c); }
 
 // ═════════ BOSS: PRINCIPAL GRIMSBY · the main hall ═════════
 // The principal confiscates every paper plane he can reach with his big butterfly net.
-// Phase 1: grab the 3 confiscated notes. Phase 2: run the pillar loop. Phase 3: ring the school bell. Then the side door opens.
+// Phase 1: grab the 3 confiscated notes. Phase 2: run the pillar loop. Phase 3: free the planes from his drawer. Phase 4: ring the bell through the paper storm. Then the side door opens.
 Person.prototype.boss = function (dt, t, fl, me, flat, dy) {
   const L = this.L, S = L.S || 1, D = L.D || DIFF.normal, dn = D.name;
   const B = this.B || (this.B = { st: 'idle', t: 0, cool: 2.5, lastStage: 0, flState: fl.state, combo: 0, lunge: null });
   const hard = dn === 'Hardcore' ? 1 : dn === 'Normal' ? 0.5 : 0;
   const lp = this.root.position, sc = this.root.scale.x;
   B.t += dt; B.cool -= dt;
-  const phase = Math.min(L.stage, 2), info = L.boss;
-  info.hp = clamp(3 - L.stage, 0, 3);
-  info.phaseText = L.stage >= 3 ? 'Defeated! Out the side door →' : ['Phase 1 · He swings his net', 'Phase 2 · He slams the floor — stay high!', 'Phase 3 · He is FURIOUS'][phase];
+  const phase = Math.min(L.stage, 3), info = L.boss;
+  info.hp = clamp(4 - L.stage, 0, 4);
+  info.phaseText = L.stage >= 4 ? 'Defeated! Out the side door →' : ['Phase 1 · He swings his net', 'Phase 2 · He slams the floor — stay high!', 'Phase 3 · He is FURIOUS — double swings!', 'Phase 4 · PAPER STORM — he opened the drawer!'][phase];
   const alive = fl.state === 'fly';
   // respawn: back off and give the player a moment
   if (alive && B.flState !== 'fly') { B.cool = Math.max(B.cool, 2.2); if (B.st !== 'stun' && B.st !== 'down') { B.st = 'chase'; B.t = 0; }
@@ -3427,8 +3427,8 @@ Person.prototype.boss = function (dt, t, fl, me, flat, dy) {
   // stage change → stagger; final stage → he gives up
   if (L.stage !== B.lastStage) {
     B.lastStage = L.stage; B.t = 0; this.shock.visible = false;
-    if (L.stage >= 3) { B.st = 'down'; this.say(pick(['Fine! FINE! Go!', 'Detention… for… everyone…']), 2.6, '#ffd0c8'); L.emit({ type: 'boss', what: 'down', p: me.clone() }); }
-    else { B.st = 'stun'; this.say(pick(['Wh-whoa!', 'My notes!', 'Impossible!']), 1.8, '#ffd0c8'); L.emit({ type: 'boss', what: 'stun', p: me.clone() }); }
+    if (L.stage >= 4) { B.st = 'down'; this.say(pick(['Fine! FINE! Go!', 'Detention… for… everyone…']), 2.6, '#ffd0c8'); L.emit({ type: 'boss', what: 'down', p: me.clone() }); }
+    else { B.st = 'stun'; this.say(L.stage === 3 ? pick(['MY DRAWER!', 'Planes, ATTACK!', 'Release the paper!']) : pick(['Wh-whoa!', 'My notes!', 'Impossible!']), 1.8, '#ffd0c8'); L.emit({ type: 'boss', what: 'stun', p: me.clone() }); }
   }
   const ov = this.override = { aRx: -1.25 + Math.sin(t * 2) * 0.05, aRz: -0.1 };
   const faceTo = (x, z, rate) => { const want = Math.atan2(x - lp.x * S, z - lp.z * S); let d = want - this.yaw; d = Math.atan2(Math.sin(d), Math.cos(d)); this.yaw += clamp(d, -rate * dt, rate * dt); return Math.abs(d); };
@@ -3438,8 +3438,8 @@ Person.prototype.boss = function (dt, t, fl, me, flat, dy) {
   const fx = fl.pos.x / S, fy = fl.pos.y / S, fz = fl.pos.z / S;
   const lf = Math.hypot(fx - lp.x, fz - lp.z);
   const inRange = alive && lf > 0.6 && lf < 3.6 && fy > 0.2 && fy < 4.6;
-  const speed = [1.05, 1.4, 1.8][phase] * (0.85 + 0.3 * hard);
-  const windT = [0.72, 0.6, 0.48][phase] - 0.1 * hard;
+  const speed = [1.05, 1.4, 1.8, 1.95][phase] * (0.85 + 0.3 * hard);
+  const windT = [0.72, 0.6, 0.48, 0.46][phase] - 0.1 * hard;
   this.dizzy.visible = B.st === 'stun';
   if (this.dizzy.visible) this.dizzy.rotation.y += dt * 5;
   switch (B.st) {
@@ -3472,7 +3472,7 @@ Person.prototype.boss = function (dt, t, fl, me, flat, dy) {
       const hand = this.aR.hand.getWorldPosition(new V3()); const segD = new THREE.Line3(hand, tip.clone()).closestPointToPoint(fl.pos, true, new V3()).distanceTo(fl.pos);
       if (!B.hit && alive && fl.inv <= 0 && (tip.distanceTo(fl.pos) < 0.75 * S || segD < 0.4 * S)) { B.hit = true; this.catchPlane(fl, me, D); }
       if (B.t > 0.3) {
-        if (!B.hit && phase === 2 && B.combo < 1) { B.combo++; B.st = 'wind'; B.t = windT * 0.45; this.say('AGAIN!', 0.8, '#ffd0c8'); }
+        if (!B.hit && phase >= 2 && B.combo < 1) { B.combo++; B.st = 'wind'; B.t = windT * 0.45; this.say('AGAIN!', 0.8, '#ffd0c8'); }
         else { B.combo = 0; B.st = 'recover'; B.t = 0; if (!B.hit) { this.say(pick(['Argh!', 'Hold STILL!', 'Missed?!', 'Come back here!']), 1.2, '#ffd0c8'); if (alive && lf < 4.5) L.emit({ type: 'nearmiss', p: fl.pos.clone() }); } }
       }
       break;
@@ -3484,7 +3484,7 @@ Person.prototype.boss = function (dt, t, fl, me, flat, dy) {
       if (!B.shockHit && alive && fl.inv <= 0 && fy < 1.6) { const d = Math.hypot(fx - B.shockC.x, fz - B.shockC.z); if (Math.abs(d - r) < 0.55) { B.shockHit = true; const dir = v3(fx - B.shockC.x, 1.4, fz - B.shockC.z).normalize(); fl.knock(dir, 8, 'Shockwave!', D, L.fxCb, 1.2); L.emit({ type: 'swat', p: fl.pos.clone(), label: 'Shockwave!' }); } }
       if (B.t > 0.7) { this.shock.visible = false; B.st = 'recover'; B.t = 0; } break; }
     case 'recover': { ov.aRx = -1.1; ov.lean = 0.12; if (this.laughT > 0) { ov.lean = -0.2 + Math.sin(t * 22) * 0.05; this.mouthO = 1; }
-      if (B.t > [0.9, 0.7, 0.45][phase]) { this.mouthO = 0; B.st = 'chase'; B.cool = [1.4, 1.0, 0.7][phase] * (1.15 - hard * 0.3); } break; }
+      if (B.t > [0.9, 0.7, 0.45, 0.5][phase]) { this.mouthO = 0; B.st = 'chase'; B.cool = [1.4, 1.0, 0.7, 0.8][phase] * (1.15 - hard * 0.3); } break; }
     case 'stun': { ov.sway = Math.sin(t * 6) * 0.12; ov.lean = -0.15; ov.aLz = 0.9; ov.aRz = -0.9; ov.aLx = -0.3; ov.aRx = -1.2; this.mouthO = 0.8;
       if (B.t > 2.6) { B.st = 'chase'; B.cool = 1.0; this.mouthO = 0; this.say(pick(['That does it!', 'You\'re in BIG trouble!', 'Now I\'m angry!']), 1.6, '#ffd0c8'); } break; }
     case 'down': { ov.hipY = 0.2; ov.tL = ov.tR = -1.5; ov.kL = ov.kR = 0.3; ov.aLx = 0.3; ov.aRx = -1.5; ov.aLz = 0.5; ov.aRz = -0.5; ov.lean = -0.3; this.mouthO = 0.3; break; }
@@ -3493,7 +3493,7 @@ Person.prototype.boss = function (dt, t, fl, me, flat, dy) {
   if (walking) { const sw = Math.sin(t * (6 + phase * 1.5)); ov.tL = sw * 0.55; ov.tR = -sw * 0.55; ov.kL = Math.max(0, -sw) * 0.6; ov.kR = Math.max(0, sw) * 0.6; if (ov.aLx === undefined) ov.aLx = -sw * 0.4; ov.by = Math.abs(sw) * 0.03; }
   if (this.laughT > 0) this.laughT -= dt;
   // face flushes red as he gets angrier
-  this.faceMat.color.copy(this.faceBase).lerp(this.faceRed, [0, 0.35, 0.7][phase] + (B.st === 'wind' ? 0.15 : 0));
+  this.faceMat.color.copy(this.faceBase).lerp(this.faceRed, [0, 0.35, 0.7, 0.85][phase] + (B.st === 'wind' ? 0.15 : 0));
 };
 Person.prototype.catchPlane = function (fl, me, D) {
   const L = this.L;
@@ -3528,13 +3528,13 @@ function principal(L, b, x, z, ry) {
   // slam shockwave ring (level-local)
   const sh = p.shock = new THREE.Mesh(new THREE.RingGeometry(0.86, 1, 48), new THREE.MeshBasicMaterial({ color: new THREE.Color(1.5, 0.7, 0.35), transparent: true, opacity: 0.8, depthWrite: false, side: THREE.DoubleSide, blending: THREE.AdditiveBlending }));
   sh.rotation.x = -Math.PI / 2; sh.visible = false; L.group.add(sh);
-  L.boss = { hp: 3, maxHp: 3, phaseText: '', person: p };
+  L.boss = { hp: 4, maxHp: 4, phaseText: '', person: p };
   return p;
 }
 
 const BOSS_LEVEL = {
   id: 'boss', name: 'The Main Hall', place: '3:29 pm · Principal Grimsby', seed: 71, gold: 70, silver: 110, boss: true,
-  story: ['The main hall. One door left between Sam and the schoolyard.', 'Principal Grimsby has a drawer full of confiscated planes — and Sam\'s first three drafts are on his table.', 'He swings a big butterfly net. When he raises it — dodge! Stay high when he slams the floor.', 'Get the notes back, run the pillar loop, then ring the school bell to stop him for good.'],
+  story: ['The main hall. One door left between Sam and the schoolyard.', 'Principal Grimsby has a drawer full of confiscated planes — and Sam\'s first three drafts are on his table.', 'He swings a big butterfly net. When he raises it — dodge! Stay high when he slams the floor.', 'Get the notes back, run the pillar loop, free the planes in his drawer — then ring the bell through the paper storm.'],
   outro: 'Grimsby sits down hard on the floor. The side door swings open — the yard is right there.',
   build(L, b) {
     const X0 = -13, X1 = 13, Z0 = -9, Z1 = 9, H = 7;
@@ -3552,7 +3552,7 @@ const BOSS_LEVEL = {
     const leaf = new THREE.Mesh(new THREE.BoxGeometry(1.58, 2.56, 0.05), M.woodLight); leaf.castShadow = true; leaf.position.set(0.79, 1.28, 0);
     const doorG = new THREE.Group(); doorG.position.set(X1 + 0.15, 0, -1.6); doorG.rotation.y = Math.PI / 2; doorG.add(leaf); L.group.add(doorG);
     const doorObb = b.col.addOBB({ inv: new M4(), matrix: new M4(), half: v3(0.79, 1.28, 0.05) }); doorObb.off = true; let doorA = 0;
-    b.update((dt) => { const open = L.stage >= 3; doorA = damp(doorA, open ? 1 : 0, 3, dt); doorG.rotation.y = Math.PI / 2 + doorA * 1.9; doorG.updateMatrixWorld(true); doorObb.matrix.copy(leaf.matrixWorld); doorObb.inv.copy(leaf.matrixWorld).invert(); doorObb.off = false; });
+    b.update((dt) => { const open = L.stage >= 4; doorA = damp(doorA, open ? 1 : 0, 3, dt); doorG.rotation.y = Math.PI / 2 + doorA * 1.9; doorG.updateMatrixWorld(true); doorObb.matrix.copy(leaf.matrixWorld); doorObb.inv.copy(leaf.matrixWorld).invert(); doorObb.off = false; });
     // stage, curtains, banner
     const SZ = 5.6;
     b.aabb(-9.5, 0, SZ, 9.5, 1.0, Z1, toon('#ffffff', { map: TEX.planks('#7a4a28') }), { uv: 2, tag: 'floor' });
@@ -3573,7 +3573,7 @@ const BOSS_LEVEL = {
     const clap = new THREE.Mesh(new THREE.SphereGeometry(0.1, 10, 8), M.metalDark); clap.position.y = -0.85; bellG.add(clap);
     b.col.add(v3(BX - 0.62, BY - 0.4, BZ - 0.62), v3(BX + 0.62, BY + 0.5, BZ + 0.62));
     let swing = 0, rung = false;
-    b.update((dt, t) => { if (L.stage >= 3 && !rung) { rung = true; swing = 1; Audio.bell(); setTimeout(() => Audio.bell(), 700); } swing = Math.max(0, swing - dt * 0.18); bellG.rotation.x = Math.sin(t * 7) * 0.5 * swing; });
+    b.update((dt, t) => { if (L.stage >= 4 && !rung) { rung = true; swing = 1; Audio.bell(); setTimeout(() => Audio.bell(), 700); } swing = Math.max(0, swing - dt * 0.18); bellG.rotation.x = Math.sin(t * 7) * 0.5 * swing; });
     // chairs in rows, aisle in the middle
     const rows = [-5.6, -4.2, -2.8, -1.4];
     const seatX = (i) => i < 6 ? -8.8 + i * 1.1 : 3.3 + (i - 6) * 1.1;
@@ -3603,7 +3603,8 @@ const BOSS_LEVEL = {
     L.stages = [
       { kind: 'pages', text: 'Grab Sam\'s 3 confiscated notes', items: [{ p: v3(0, 1.25, 3.6) }, { p: v3(-11.6, 3.2, -5) }, { p: v3(9, 0.9, -7.2) }], hint: 'Watch his net — when he raises it, turn away fast!' },
       { kind: 'rings', text: 'Run the pillar loop', items: [{ p: v3(-10.5, 2.4, -3), n: N(0, 0, 1) }, { p: v3(-10.5, 2.8, 2), n: N(0, 0, 1) }, { p: v3(-5, 3.6, 4.6), n: N(1, 0, 0) }, { p: v3(10.5, 2.6, 2), n: N(0, 0, -1) }, { p: v3(10.5, 2.2, -3), n: N(0, 0, -1) }, { p: v3(0, 4.0, -7), n: N(-1, 0, 0) }], hint: 'He slams the floor now — fly above head height.' },
-      { kind: 'rings', text: 'Ring the school bell!', items: [{ p: v3(BX, BY - 1.15, BZ - 0.1), n: N(0, 0, 1), r: 0.55 }], hint: 'Fly through the ring right under the bell.' },
+      { kind: 'pages', text: 'Free 3 planes from his drawer', items: [{ p: v3(-1.8, 1.25, 3.9) }, { p: v3(6.5, 2.2, -5.5) }, { p: v3(-7.5, 5.5, 0) }], hint: 'He swings twice now — keep moving!' },
+      { kind: 'rings', text: 'Ring the bell through the paper storm!', items: [{ p: v3(BX, BY - 1.15, BZ - 0.1), n: N(0, 0, 1), r: 0.55 }], hint: 'Weave through the flying planes and fly under the bell.' },
       { kind: 'exit', text: 'Out the side door to the yard', box: box3(X1 + 0.4, 0, -3.2, X1 + 4.4, 2.6, -1.6), dir: v3(1, 0, 0) },
     ];
     L.stars = [v3(0, 6.3, Z1 - 0.9), v3(-10.5, 6.2, 4), v3(4.4, 0.55, -2.1)];
@@ -6635,7 +6636,7 @@ const CUTS = {
   bus: [['gus', 'Sit down, everybody. Next stop: Elm Street.'], ['jake', 'Sam’s stuck at the front again.'], ['zoe', 'Mia saved him a seat.'], ['mia', 'Back here!']],
   town: [['bell', 'Fresh bread! Fresh bread!'], ['jake', 'Sam’s late for Mia’s party.'], ['leo', 'He’s always late.'], ['zoe', 'Her window’s open. Just saying.']],
 };
-const spkName = (id) => (CAST[id] ? CAST[id].n : TEACHERS[id] ? TEACHERS[id].n : id === 'mia' ? 'Mia' : id === 'grimsby' ? 'Principal Grimsby' : id);
+let spkName = (id) => (CAST[id] ? CAST[id].n : TEACHERS[id] ? TEACHERS[id].n : id === 'mia' ? 'Mia' : id === 'grimsby' ? 'Principal Grimsby' : id);
 function findSpeaker(L, id) {
   if (!L || !L.people) return null;
   if (id === 'mia') return L.people.find((p) => p.kind === 'mia' && !p.o.glimpse) || L.people.find((p) => p.kind === 'mia');
@@ -6763,6 +6764,817 @@ ACHS.push(
     marathon: () => { if (!Store.data.best.yard) return; Game.leaveCustom(); clearMods(); Game.marathon = { i: 0, total: 0, splits: [], crashes: 0 }; Game.li = 0; Game.practice = false; Game.begin(); },
   });
 }
+
+
+// ═════════ v7: ANIMALS — a dog, flocks of pigeons and ducks, the class hamster, umbrellas ═════════
+// all positions are level-local; distances to the plane are compared in world units (× L.S)
+const _a1 = new V3(), _a2 = new V3();
+function emoteSprite(root, y, text, w = 0.5) {
+  const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: emoteTex(text), transparent: true, depthWrite: false })); s.scale.set(w, w / 2, 1); s.position.y = y; s.visible = false; s.renderOrder = 9; root.add(s); return s;
+}
+class Dog {
+  // o: { box:[x0,z0,x1,z1], color, dark, name, y }
+  constructor(L, b, x, z, o = {}) {
+    pg(); this.L = L; this.o = o; this.y0 = o.y || 0; this.box = o.box || [x - 4, z - 4, x + 4, z + 4];
+    const fur = toon(o.color || '#c98a4a'), dark = toon(o.dark || '#6e4426');
+    const root = this.root = new THREE.Group(); root.position.set(x, this.y0, z); L.group.add(root);
+    const mk = (geo, mat, sx, sy, sz, px, py, pz, par = root) => { const m = new THREE.Mesh(geo, mat); m.scale.set(sx, sy, sz); m.position.set(px, py, pz); m.castShadow = true; par.add(m); return m; };
+    mk(PG.sph, fur, 0.13, 0.12, 0.24, 0, 0.3, 0);
+    const head = this.head = new THREE.Group(); head.position.set(0, 0.42, 0.24); root.add(head);
+    mk(PG.sph, fur, 0.1, 0.1, 0.11, 0, 0, 0, head); mk(PG.sph, dark, 0.055, 0.05, 0.07, 0, -0.03, 0.09, head); mk(PG.sphLo, M.black, 0.025, 0.02, 0.02, 0, -0.01, 0.16, head);
+    for (const s of [-1, 1]) { mk(PG.box, dark, 0.03, 0.1, 0.06, s * 0.09, -0.02, -0.01, head).rotation.z = s * 0.3; mk(PG.sphLo, M.black, 0.015, 0.018, 0.012, s * 0.045, 0.03, 0.09, head); }
+    this.legs = []; for (const [lx, lz] of [[-0.07, 0.14], [0.07, 0.14], [-0.07, -0.14], [0.07, -0.14]]) { const g = new THREE.Group(); g.position.set(lx, 0.24, lz); root.add(g); mk(PG.box, fur, 0.04, 0.24, 0.04, 0, -0.12, 0, g); this.legs.push(g); }
+    this.tail = new THREE.Group(); this.tail.position.set(0, 0.36, -0.22); root.add(this.tail); mk(PG.box, fur, 0.03, 0.03, 0.16, 0, 0.04, -0.07, this.tail).rotation.x = -0.6;
+    this.bub = emoteSprite(root, 0.78, 'Woof!');
+    this.st = 'idle'; this.t0 = 0; this.cool = rr(1, 3); this.bark = 1; this.hop = 0; this.hit = 0; this.wan = v3(x, 0, z); this.yaw = 0;
+    b.update((dt, t, fl) => this.update(dt, t, L.nearFlyer ? L.nearFlyer(this.root, fl) : fl));
+  }
+  update(dt, t, fl) {
+    const L = this.L, S = L.S || 1, r = this.root, alive = fl.state === 'fly' && !L.passive;
+    this.t0 += dt; this.cool -= dt; this.bark -= dt; this.hit -= dt;
+    const loc = L.group.worldToLocal(_a1.copy(fl.pos)), [x0, z0, x1, z1] = this.box;
+    const near = alive && Math.hypot(loc.x - r.position.x, loc.z - r.position.z) < 9 && loc.x > x0 - 3 && loc.x < x1 + 3 && loc.z > z0 - 3 && loc.z < z1 + 3;
+    let tx, tz, spd;
+    if (near) { tx = clamp(loc.x, x0, x1); tz = clamp(loc.z, z0, z1); spd = 2.4; this.st = 'chase'; }
+    else { if (this.cool <= 0) { this.cool = rr(2.5, 5); this.wan.set(rr(x0, x1), 0, rr(z0, z1)); } tx = this.wan.x; tz = this.wan.z; spd = 0.7; this.st = 'idle'; }
+    const dx = tx - r.position.x, dz = tz - r.position.z, d = Math.hypot(dx, dz);
+    const moving = d > 0.25;
+    if (moving) { r.position.x += dx / d * Math.min(d, spd * dt); r.position.z += dz / d * Math.min(d, spd * dt); const want = Math.atan2(dx, dz); let a = want - this.yaw; a = Math.atan2(Math.sin(a), Math.cos(a)); this.yaw += clamp(a, -6 * dt, 6 * dt); }
+    r.rotation.y = this.yaw;
+    const sw = moving ? Math.sin(t * (spd > 1 ? 16 : 8)) * 0.6 : 0; this.legs.forEach((g, i) => (g.rotation.x = (i % 3 === 0 ? sw : -sw)));
+    this.tail.rotation.y = Math.sin(t * (this.st === 'chase' ? 22 : 9)) * 0.6;
+    // jump at a low plane, bark when chasing
+    const ly = loc.y - this.y0;
+    if (this.hop <= 0 && near && ly < 1.3 && d < 0.6) this.hop = 0.55;
+    if (this.hop > 0) { this.hop -= dt; const k = 1 - this.hop / 0.55; r.position.y = this.y0 + Math.sin(k * Math.PI) * 0.55; this.head.rotation.x = -0.6; }
+    else { r.position.y = this.y0; this.head.rotation.x = Math.sin(t * 3) * 0.05 - (near ? Math.atan2(ly - 0.4, Math.max(0.3, d)) * 0.5 : 0); }
+    if (near && this.bark <= 0) { this.bark = rr(1.4, 2.8); this.bub.material.map = emoteTex(pick(['Woof!', 'Wuf wuf!', 'ARF!', 'Bork!']), '#fff3c4'); this.bub.visible = true; setTimeout(() => (this.bub.visible = false), 700);
+      if (camera.position.distanceTo(r.getWorldPosition(_a2)) < 12 * S) { Audio.tone(240, 0.09, 'square', 0.05, 0, 0.7); Audio.tone(200, 0.1, 'square', 0.04, 0.11, 0.7); } }
+    if (this.hop > 0.1 && this.hit <= 0 && alive && this.head.getWorldPosition(_a2).distanceTo(fl.pos) < 0.5 * S) {
+      this.hit = 3; if (fl.knock(new V3().subVectors(fl.pos, _a2).setY(0.6).normalize(), 5, `Fetched by ${this.o.name || 'the dog'}!`, L.D, L.fxCb, 0.5)) { L.emit({ type: 'dog', p: fl.pos.clone() }); stat('fetched'); }
+    }
+  }
+}
+function dog(L, b, x, z, o) { return new Dog(L, b, x, z, o); }
+
+class Flock {
+  // o: { duck, n, r, y, color } — pigeons fly off when you pass; ducks flap, quack and waddle away
+  constructor(L, b, cx, cz, o = {}) {
+    pg(); this.L = L; this.o = o; this.c = v3(cx, o.y || 0, cz); this.r = o.r || 1.6; this.birds = []; this.scared = 0;
+    const n = o.n || 6, duck = !!o.duck;
+    for (let i = 0; i < n; i++) {
+      const g = new THREE.Group(), col = toon(duck ? (i % 3 ? '#8a6a3a' : '#f4efe4') : (i % 3 ? '#8a8f9a' : '#b0b4bc'));
+      const body = new THREE.Mesh(PG.sph, col); body.scale.set(duck ? 0.11 : 0.08, duck ? 0.08 : 0.065, duck ? 0.17 : 0.13); body.position.y = duck ? 0.08 : 0.08; g.add(body);
+      const head = new THREE.Mesh(PG.sph, toon(duck ? (i % 3 ? '#3a7a4a' : '#f4efe4') : '#5a6a7a')); head.scale.setScalar(duck ? 0.055 : 0.045); head.position.set(0, duck ? 0.17 : 0.15, duck ? 0.12 : 0.1); g.add(head);
+      const beak = new THREE.Mesh(PG.box, toon(duck ? '#e8a23a' : '#c9a23a')); beak.scale.set(duck ? 0.04 : 0.015, 0.012, duck ? 0.05 : 0.03); beak.position.set(0, duck ? 0.16 : 0.145, duck ? 0.18 : 0.145); g.add(beak);
+      const wings = [-1, 1].map((s) => { const p = new THREE.Group(); p.position.set(s * 0.06, 0.1, 0); const w = new THREE.Mesh(PG.box, col); w.scale.set(duck ? 0.14 : 0.16, 0.01, duck ? 0.1 : 0.08); w.position.x = s * (duck ? 0.06 : 0.08); p.add(w); g.add(p); return p; });
+      g.traverse((m) => { if (m.isMesh) m.castShadow = true; });
+      const a = R() * TAU, rr0 = R() * this.r; g.position.set(cx + Math.cos(a) * rr0, this.c.y, cz + Math.sin(a) * rr0); g.rotation.y = R() * TAU; L.group.add(g);
+      this.birds.push({ g, wings, head, st: 'ground', t: R() * 5, v: new V3(), home: g.position.clone(), ph: R() * TAU });
+    }
+    this.bub = new THREE.Group(); L.group.add(this.bub); this.bubS = emoteSprite(this.bub, 0, duck ? 'Quack!' : 'Coo!', 0.55);
+    b.update((dt, t, fl) => this.update(dt, t, L.nearFlyer ? L.nearFlyer(this.birds[0].g, fl) : fl));
+  }
+  update(dt, t, fl) {
+    const L = this.L, S = L.S || 1, duck = !!this.o.duck, alive = fl.state === 'fly' && !L.passive;
+    const loc = L.group.worldToLocal(_a1.copy(fl.pos)); this.scared -= dt;
+    const close = alive && Math.hypot(loc.x - this.c.x, loc.z - this.c.z) < this.r + 2.2 && loc.y - this.c.y < 3.2;
+    if (close && this.scared <= 0) {
+      this.scared = duck ? 3 : 7; stat('birds');
+      this.bub.position.set(this.c.x, this.c.y + 0.6, this.c.z); this.bubS.material.map = emoteTex(duck ? pick(['Quack!', 'QUACK!', 'Quaaack!']) : pick(['Coo!', 'Flap flap!', 'Coo-coo!']), '#fffaf0'); this.bubS.visible = true; setTimeout(() => (this.bubS.visible = false), 900);
+      if (camera.position.distanceTo(this.birds[0].g.getWorldPosition(_a2)) < 14 * S) { if (duck) { Audio.tone(420, 0.12, 'sawtooth', 0.035, 0, 0.7); Audio.tone(380, 0.14, 'sawtooth', 0.03, 0.15, 0.7); } else Audio.noiseHit(0.18, 2600, 0.35, 0.8); }
+      for (const B of this.birds) { const away = _a2.set(B.g.position.x - loc.x, 0, B.g.position.z - loc.z).normalize(); B.st = 'fly'; B.t = 0; B.v.set(away.x * (duck ? 1.4 : 2.6), duck ? 1.6 : rr(2.6, 3.6), away.z * (duck ? 1.4 : 2.6)); }
+    }
+    for (const B of this.birds) {
+      B.t += dt; const g = B.g;
+      if (B.st === 'ground') {
+        g.position.y = this.c.y; B.head.position.y = (duck ? 0.17 : 0.15) - Math.max(0, Math.sin(t * 3 + B.ph * 5)) * 0.06;
+        if (R() < dt * 0.4) g.rotation.y += rr(-1, 1);
+        const wk = duck ? 0.18 : 0.12; g.position.x += Math.sin(g.rotation.y) * wk * dt; g.position.z += Math.cos(g.rotation.y) * wk * dt;
+        if (g.position.distanceTo(_a2.set(this.c.x, this.c.y, this.c.z)) > this.r) g.rotation.y = Math.atan2(this.c.x - g.position.x, this.c.z - g.position.z);
+        B.wings[0].rotation.z = 0.05; B.wings[1].rotation.z = -0.05; g.rotation.z = duck ? Math.sin(t * 6 + B.ph) * 0.08 : 0;
+      } else {
+        const f = Math.sin(t * (duck ? 18 : 22) + B.ph) * 0.9; B.wings[0].rotation.z = f; B.wings[1].rotation.z = -f;
+        if (duck) { B.v.y -= 9 * dt; g.position.addScaledVector(B.v, dt); if (g.position.y <= this.c.y) { g.position.y = this.c.y; B.v.set(0, 0, 0); if (B.t > 0.6) B.st = 'ground'; } }
+        else if (B.t < 2.4) { g.position.addScaledVector(B.v, dt); B.v.y *= Math.exp(-0.3 * dt); g.rotation.y = Math.atan2(B.v.x, B.v.z); }
+        else { // glide back to a new spot near home
+          const a = B.ph + t * 0.1; const tx = this.c.x + Math.cos(a) * this.r * 0.7, tz = this.c.z + Math.sin(a) * this.r * 0.7;
+          const d = _a2.set(tx - g.position.x, this.c.y - g.position.y, tz - g.position.z); const l = d.length();
+          if (l < 0.15 || B.t > 9) { B.st = 'ground'; g.position.y = this.c.y; } else { g.position.addScaledVector(d.divideScalar(l), Math.min(l, 2.2 * dt)); g.rotation.y = Math.atan2(d.x, d.z); }
+        }
+      }
+    }
+  }
+}
+function flock(L, b, x, z, o) { return new Flock(L, b, x, z, o); }
+
+class Hamster {
+  constructor(L, b, x, y, z, ry = 0) {
+    pg(); this.L = L; const root = this.root = new THREE.Group(); root.position.set(x, y, z); root.rotation.y = ry; L.group.add(root);
+    const wire = new THREE.MeshToonMaterial({ color: 0xd8dce0, wireframe: true, gradientMap: gradientMap() });
+    const cage = new THREE.Mesh(new THREE.BoxGeometry(0.62, 0.4, 0.38, 6, 4, 4), wire); cage.position.y = 0.22; root.add(cage);
+    const tray = new THREE.Mesh(new THREE.BoxGeometry(0.64, 0.04, 0.4), toon('#3d8ac9')); tray.position.y = 0.02; root.add(tray);
+    const bed = new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.02, 0.36), toon('#e8d9a0')); bed.position.y = 0.045; root.add(bed);
+    this.wheel = new THREE.Group(); this.wheel.position.set(0.12, 0.2, 0); root.add(this.wheel);
+    const rim = new THREE.Mesh(new THREE.TorusGeometry(0.14, 0.012, 6, 20), toon('#e94e3c')); this.wheel.add(rim);
+    for (let i = 0; i < 6; i++) { const sp = new THREE.Mesh(PG.box, toon('#e94e3c')); sp.scale.set(0.006, 0.28, 0.006); sp.rotation.z = i / 6 * Math.PI; this.wheel.add(sp); }
+    const ham = this.ham = new THREE.Group(); ham.position.set(0.12, 0.1, 0); root.add(ham);
+    const fur = toon('#e0a050'); const bd = new THREE.Mesh(PG.sph, fur); bd.scale.set(0.05, 0.045, 0.065); ham.add(bd);
+    const wh = new THREE.Mesh(PG.sph, toon('#f4efe4')); wh.scale.set(0.035, 0.03, 0.04); wh.position.set(0, -0.012, 0.03); ham.add(wh);
+    for (const s of [-1, 1]) { const e = new THREE.Mesh(PG.sphLo, M.black); e.scale.setScalar(0.008); e.position.set(s * 0.02, 0.02, 0.055); ham.add(e); const ear = new THREE.Mesh(PG.sph, toon('#f2b8a8')); ear.scale.setScalar(0.014); ear.position.set(s * 0.03, 0.04, 0.03); ham.add(ear); }
+    b.col.add(v3(x - 0.33, y, z - 0.33), v3(x + 0.33, y + 0.45, z + 0.33));
+    this.bub = emoteSprite(root, 0.7, 'squeak!', 0.45); this.spd = 2; this.sq = 0;
+    b.update((dt, t, fl) => {
+      const S = L.S || 1, d = root.getWorldPosition(_a2).distanceTo(fl.pos), near = fl.state === 'fly' && !L.passive && d < 3 * S;
+      this.spd = damp(this.spd, near ? 16 : 2.2, 2, dt); this.wheel.rotation.z -= this.spd * dt; ham.position.y = 0.1 + Math.abs(Math.sin(t * this.spd * 0.9)) * 0.012; ham.rotation.z = Math.sin(t * this.spd) * 0.1;
+      this.sq -= dt; if (near && this.sq <= 0) { this.sq = rr(1.6, 3); stat('hamster'); this.bub.material.map = emoteTex(pick(['squeak!', 'eek!', '!!!', 'zoom!']), '#fff3c4'); this.bub.visible = true; setTimeout(() => (this.bub.visible = false), 700); if (d < 6 * S) Audio.tone(2200, 0.06, 'sine', 0.04, 0, 1.3); }
+    });
+  }
+}
+function umbrellaFor(p, color) {
+  const g = new THREE.Group(); g.position.set(0.12, 1.82, 0.02);
+  const can = new THREE.Mesh(new THREE.ConeGeometry(0.42, 0.18, 10, 1, true), toon(color, { side: THREE.DoubleSide })); can.position.y = 0.0; can.castShadow = true; g.add(can);
+  const st = new THREE.Mesh(PG.box, M.black); st.scale.set(0.015, 0.75, 0.015); st.position.y = -0.36; g.add(st);
+  g.rotation.z = -0.12; p.root.add(g); p.umbrella = g; return g;
+}
+
+// ═════════ v7: NEW CRAFTS — the Crane (flap) and the Hawk (power dive) ═════════
+Object.assign(PLANES, {
+  crane: { name: 'The Crane', blurb: 'Origami crane. Light and floaty. Gust: flap your wings — tap again and again to climb.', ability: 'flap', cruise: 5.6, drag: 0.027, roll: 2.8, pitch: 1.8, yaw: 0.9, align: 4.2, gust: 3.6, sink: 0.72, turn: 1.35, lift: 1.15,
+    stats: { speed: 2, glide: 4, agility: 3, ability: 5 } },
+  hawk: { name: 'The Hawk', blurb: 'Swept-back hunter. Gust: hold to power-dive, let go to swoop back up.', ability: 'dive', cruise: 7.0, drag: 0.024, roll: 3.4, pitch: 2.1, yaw: 1.0, align: 4.8, gust: 6.2, sink: 0.9, turn: 1.45,
+    stats: { speed: 5, glide: 2, agility: 4, ability: 4 } },
+});
+CRAFTS.push('crane', 'hawk');
+CRAFT_LINES.crane = ['A paper CRANE!', 'Make a wish!', 'Look at it flap!'];
+CRAFT_LINES.hawk = ['It dives like a hawk!', 'Swoosh!', 'Fierce fold!'];
+PT.crane = [v3(0, 0.09, 0.19), v3(0.2, 0.06, -0.02), v3(-0.2, 0.06, -0.02), v3(0, 0.1, -0.15), v3(0, -0.03, 0)];
+PT.hawk = [v3(0, 0, 0.19), v3(0.17, 0.01, -0.07), v3(-0.17, 0.01, -0.07), v3(0, -0.03, -0.06), v3(0.06, 0.008, -0.17), v3(-0.06, 0.008, -0.17)];
+{
+  const _pg = planeGeometry;
+  planeGeometry = function (type) {
+    if (type !== 'crane' && type !== 'hawk') return _pg(type);
+    const m = (p) => [-p[0], p[1], p[2]]; let tris;
+    if (type === 'crane') {
+      const C = [0, 0, 0.06], B = [0, 0, -0.07], W = [0.2, 0.06, -0.02], WM = [0.07, 0.015, 0.0], K = [0, -0.035, 0], NB = [0, -0.015, 0.02], NT = [0, 0.1, 0.17], HD = [0, 0.075, 0.215], HB = [0, 0.085, 0.15], TB = [0, -0.015, -0.03], TT = [0, 0.11, -0.16];
+      tris = [[C, W, WM], [WM, W, B], [C, m(WM), m(W)], [m(WM), B, m(W)], [C, K, B], [C, B, K], [C, NB, NT], [C, NT, NB], [NT, HD, HB], [NT, HB, HD], [B, TB, TT], [B, TT, TB]];
+    } else {
+      const Nn = [0, 0, 0.19], WT = [0.17, 0.01, -0.07], WR = [0.05, 0.005, -0.06], TL = [0.06, 0.008, -0.17], TC = [0, 0.006, -0.15], K = [0, -0.03, -0.06], KF = [0, -0.006, 0.12];
+      tris = [[Nn, WT, WR], [Nn, WR, TC], [WR, TL, TC], [Nn, m(WR), m(WT)], [Nn, TC, m(WR)], [m(WR), TC, m(TL)], [KF, TC, K], [KF, K, TC]];
+    }
+    const pos = [], uv = [];
+    for (const t of tris) for (const p of t) { pos.push(p[0], p[1], p[2]); uv.push(p[0] / 0.42 + 0.5, p[2] / 0.42 + 0.5); }
+    const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2));
+    g.computeVertexNormals(); g.userData.base = Float32Array.from(pos); return g;
+  };
+  const _ua = Flyer.prototype.updateArcade;
+  Flyer.prototype.updateArcade = function (dt, inp, world, D, fxCb) {
+    const S = world.S || 1, crane = this.type === 'crane', hawk = this.type === 'hawk';
+    if (crane && this.gPress && this.gust > 0.1 && (this.abilCool || 0) <= 0) { this.bounceV = 4.6 * Math.sqrt(S); this.ap = Math.max(this.ap, 0.3); this.gust -= 0.12; this.abilCool = 0.26; fxCb && fxCb('flap'); }
+    const diving = hawk && inp.gustOn && this.gust > 0.02;
+    if (diving) { this.diveT = (this.diveT || 0) + dt; this.ap = damp(this.ap, -0.9, 4, dt); }
+    else if (hawk && this.diveT > 0) { if (this.diveT > 0.35) { this.bounceV = clamp(this.diveT * 3.4, 2, 7.5) * Math.sqrt(S); this.ap = Math.max(this.ap, 0.55); fxCb && fxCb('swoop'); } this.diveT = 0; }
+    const r = _ua.call(this, dt, inp, world, D, fxCb);
+    if (this.state !== 'fly') { this.diveT = 0; return r; }
+    const cruise = this.P.cruise * ARC.speed;
+    if (diving) { this.aspd = Math.max(this.aspd, cruise * (1.5 + Math.min(this.diveT, 1.5) * 0.35)); this.gust = Math.max(0, this.gust - dt * 0.42); }
+    return r;
+  };
+  const _up = Flyer.prototype.update;
+  Flyer.prototype.update = function (dt, inp, world, D, fxCb) {
+    if (!this.arcade && this.state === 'fly' && (this.type === 'crane' || this.type === 'hawk')) {
+      const S = world.S || 1, press = inp.gustOn && !this._gp7; this._gp7 = inp.gustOn;
+      if (this.type === 'crane' && press && this.gust > 0.1) { this.vel.y += 3.4 * Math.sqrt(S); this.gust -= 0.12; fxCb && fxCb('flap'); }
+      if (this.type === 'hawk') { if (inp.gustOn && this.gust > 0.02) { this.diveT = (this.diveT || 0) + dt; this.vel.y -= 7 * dt; } else if (this.diveT > 0) { if (this.diveT > 0.35) { this.vel.y += clamp(this.diveT * 3.5, 2, 7) * Math.sqrt(S); fxCb && fxCb('swoop'); } this.diveT = 0; } }
+    }
+    return _up.call(this, dt, inp, world, D, fxCb);
+  };
+  const _fx = Game.fx;
+  Game.fx = function (kind, a) {
+    if (kind === 'flap') { Audio.noiseHit(0.22, 700, 0.12, 0.5, 0, 'bandpass'); Audio.tone(560, 0.08, 'triangle', 0.04, 0, 1.4); bursts.emit(this.flyer.pos, 6, 0xffffff, 0.9, -1); }
+    if (kind === 'swoop') { Audio.tone(440, 0.35, 'triangle', 0.06, 0, 2.2); Audio.noiseHit(0.3, 1200, 0.3, 0.5, 0, 'bandpass'); UI.pop('swoop!'); bursts.emit(this.flyer.pos, 14, 0xdff2ff, 1.6, -1); }
+    return _fx.call(this, kind, a);
+  };
+}
+
+// ═════════ v7: NEW CLASSMATES — Nina, Ben and Rosa ═════════
+Object.assign(CAST, {
+  nina: { n: 'Nina', d: 'The new girl. Everything here is new to her.', shirt: '#5a8ac9', pants: '#3a3a44', hair: 'long', hairC: '#d9b36a', skin: '#f1c8a4', pitch: 1.28,
+    chat: ['Is this normal here?', 'My old school banned planes.', 'Everyone’s nice. Mostly.', 'What’s a Grimsby?', 'I still get lost on the stairs.'], fan: ['That’s amazing!', 'Best school ever!', 'Do it again!'] },
+  ben: { n: 'Ben', d: 'The inventor. Wants to put a motor on everything.', shirt: '#8a6a3a', pants: '#2c3f66', hair: 'curly', hairC: '#c9702a', skin: '#e0ac85', glasses: true, pitch: 1.06,
+    chat: ['I could add a propeller.', 'Needs more rubber bands.', 'Prototype seven exploded.', 'Aerodynamics is just vibes.', 'Has anyone seen my screwdriver?'], fan: ['Excellent engineering!', 'What’s the wingspan?!', 'Taking notes!'] },
+  rosa: { n: 'Rosa', d: 'Runs the school paper. Always chasing a scoop.', shirt: '#b8457a', pants: '#2a2d36', hair: 'bun', hairC: '#2a1a10', skin: '#a86b45', pitch: 1.2,
+    chat: ['Any comment for the paper?', 'This is front-page news.', 'Sources say Mia blushed.', 'Off the record? Never.', 'Spell your name for me?'], fan: ['Headline: PLANE WINS!', 'Got the photo!', 'Exclusive!'] },
+});
+for (const [k, add] of Object.entries({ class: ['nina'], corridor: ['ben'], library: ['rosa'], canteen: ['rosa', 'ben'], lab: ['ben'], music: ['nina'], gym: ['rosa'], boss: ['ben', 'nina'], yard: ['nina', 'rosa'], art: ['nina'], roof: ['ben'], bus: ['nina'], town: ['rosa', 'ben'] }))
+  if (CAST_IN[k]) for (const id of add) if (!CAST_IN[k].includes(id)) CAST_IN[k].push(id);
+Object.assign(JOKES, {
+  rosa: { n: 'Rosa’s headlines', parts: ['Headline: MYSTERY PLANE SPOTTED.', 'Headline: PLANE SEEN NEAR LIBRARY. Shh.', 'Headline: PANCAKES INVOLVED?', 'Headline: SCIENCE CONFIRMS — IT’S PAPER.', 'Headline: PLANE JOINS BAND.', 'Headline: GRIMSBY FURIOUS. Again.', 'Headline: IS IT A LOVE NOTE? Developing.', 'Final edition: IT WAS. Aww.'] },
+  ben: { n: 'Ben’s propeller plan', parts: ['Step 1: borrow a propeller.', 'Step 2: find a rubber band. A big one.', 'Step 3: wind it up 400 times.', 'Step 4: ask Mr. Petrenko. He said no.', 'Step 5: do it anyway.', 'Step 6: it flew! Backwards.', 'Step 7: it’s in Grimsby’s drawer now.', 'Conclusion: paper is perfect as it is.'] },
+  nina: { n: 'Nina’s first week', parts: ['Day 1: someone threw a plane. Is that normal?', 'Day 2: the library cat likes me.', 'Day 3: pancake Friday on a Wednesday?', 'Day 4: the lab smells like eggs. Always.', 'Day 5: Leo tried to catch a plane. Missed.', 'Day 6: Grimsby has a NET.', 'Day 7: Mia smiled at the plane. I saw.', 'Verdict: I love this school.'] },
+});
+
+// ═════════ v7: MORE OVERHEARD — ten new moments, ten more lines in every level ═════════
+SP_AT.push('star2', 'star3', 'uturn', 'crash2', 'fast', 'brake', 'clean', 'last', 'combo', 'empty');
+SP_LABEL.push('Second star', 'All three stars', 'U-turn', 'Crash again', 'Top speed', 'Hard brake', 'Clean minute', 'Last stretch', 'Combo', 'Out of gust');
+const SP_MORE2 = {
+  class: ['Two stars! Ms. Hart’s gonna notice.', 'All three! Detention-proof!', 'It turned around! Rude.', 'Again? Fold it better!', 'It’s faster than the bell!', 'Brakes! Paper has brakes?', 'A whole minute, no crash!', 'Out the door — almost there!', 'Combo! Write that down!', 'It’s running out of puff…'],
+  corridor: ['Another star by the lockers!', 'Every star in the hall!', 'U-turn at the trophies!', 'Crashed again. Gus will mop it.', 'Hallway speed record!', 'Whoa — it stopped mid-air!', 'Clean flying. Respect.', 'Up the stairs, little plane!', 'Combo through the corridor!', 'No more gust? Use the vent!'],
+  library: ['(whisper) Second star…', '(whisper) ALL the stars!', '(whisper) It turned around.', '(whisper) Ouch. Again.', '(whisper) Too fast for a library!', '(whisper) Nice, gentle braking.', '(whisper) Not one crash.', '(whisper) The exit’s that way.', '(whisper) Combo…!', '(whisper) It’s out of breath.'],
+  canteen: ['Another star in the syrup!', 'Three stars — free dessert!', 'It turned for the pancakes!', 'Splat. Again.', 'Faster than the lunch cart!', 'Screech! Pancake brakes!', 'No crash! Not even in the peas!', 'Lab’s next door — go!', 'Combo! Extra syrup!', 'Out of gust? Ride the steam!'],
+  lab: ['Second star: confirmed.', 'Three stars! Eureka!', 'Reversed the reaction!', 'Repeat experiment failed.', 'Velocity: ridiculous.', 'Deceleration observed!', 'Sixty seconds, zero crashes.', 'Final phase of the experiment!', 'Chain reaction!', 'Fuel depleted. Use the duct!'],
+  music: ['Second star — encore!', 'Three stars: a full chord!', 'U-turn on the downbeat!', 'Off-key crash. Again.', 'Allegro! ALLEGRO!', 'Fermata! It paused!', 'A clean minute of music!', 'Final bars! Big finish!', 'Combo — in tempo!', 'Out of breath. Like my tuba.'],
+  gym: ['Second star — two points!', 'Hat trick of stars!', 'Nice pivot!', 'Fumble! Again!', 'Fast break!', 'Timeout! It stopped!', 'A minute without a foul!', 'Last quarter — go!', 'Combo! Coach is smiling!', 'Sub out — no gust left!'],
+  boss: ['He’s missing everything!', 'All the stars! Grimsby’s fuming!', 'It turned right round him!', 'Into the net. AGAIN.', 'Too fast for his net!', 'It stopped! He swung at air!', 'A minute and he can’t catch it!', 'The bell! Ring the bell!', 'Combo! The hall goes wild!', 'Out of gust — dodge on foot!'],
+  yard: ['Another star by the swings!', 'Every star in the yard!', 'U-turn over the field!', 'Grass stains. Again.', 'Fast as the bus!', 'Brakes! Watch the hose!', 'Clean flight in the sun!', 'The oak’s right there!', 'Combo across the yard!', 'Out of gust? Find a thermal!'],
+  art: ['Second star — gold leaf!', 'Three stars! A triptych!', 'A brushstroke U-turn!', 'Splat. Abstract again.', 'Speed lines!', 'It stopped like a still life!', 'A clean minute of art!', 'Final touches!', 'Colour combo!', 'Out of paint… I mean gust.'],
+  roof: ['Second star — like a meteor!', 'All three! A constellation!', 'It turned like a comet!', 'Pigeons got it again.', 'Faster than a shooting star!', 'It hovered by the mast!', 'A clean minute under the stars!', 'The deck! Land it!', 'Combo! Make a wish!', 'Out of gust — catch the smoke!'],
+  bus: ['Second star under a seat!', 'Every star on the bus!', 'U-turn in the aisle!', 'Bonk. Again.', 'Faster than the bus!', 'Brake! Like the driver!', 'No crash! On a BUS!', 'Back seat’s right there!', 'Combo down the aisle!', 'Out of gust? The hatch!'],
+  town: ['Second star in town!', 'All three! Town legend!', 'U-turn at the fountain!', 'Splash. Again.', 'Faster than the cars!', 'Brakes by the bakery!', 'A clean minute through town!', 'Mia’s window! Number 14!', 'Combo down Elm Street!', 'Out of gust — use the fountain!'],
+};
+for (const k in SP_MORE2) if (SPECIALS[k]) SPECIALS[k].lines = SPECIALS[k].lines.slice(0, 10).concat(SP_MORE2[k]);
+{
+  const _begin = Game.begin, _hud = Game.hud, _ev = Game.onEvent, _fx = Game.fx;
+  Object.assign(Game, {
+    begin() { const r = _begin.call(this); this._sp = new Array(SP_AT.length).fill(0); this._stars7 = 0; this._crash7 = 0; this._clean7 = 0; this._brk7 = 0; return r; },
+    hud(dt) {
+      _hud.call(this, dt);
+      if (this.mode !== 'play' || this.editing || this.customDef || !this._sp) return;
+      const fl = this.flyer, L = this.level;
+      if (fl.state === 'fly') { this._clean7 += dt; if (this._clean7 > 60) this.special('clean'); } else this._clean7 = 0;
+      if (fl.vel.length() > fl.P.cruise * ARC.speed * 1.5) this.special('fast');
+      const inb = Input.state.brake || 0; this._brk7 = inb > 0.7 && fl.state === 'fly' ? this._brk7 + dt : 0; if (this._brk7 > 0.6) this.special('brake');
+      if (fl.gust < 0.03 && fl.state === 'fly') this.special('empty');
+      if ((this.combo || 0) >= 4 && this.comboT > 0) this.special('combo');
+      if (L.stages && L.stage === L.stages.length - 1 && L.stages.length > 1) this.special('last');
+    },
+    onEvent(e) {
+      if (this._sp && !this.mp && !this.customDef && e.type === 'star') { this._stars7++; if (this._stars7 === 2) setTimeout(() => this.special('star2'), 900); if (this._stars7 === 3) setTimeout(() => this.special('star3'), 900); }
+      return _ev.call(this, e);
+    },
+    fx(kind, a) {
+      if (this._sp && !this.mp && this.mode === 'play') { if (kind === 'uturn') this.special('uturn'); if (kind === 'crash') { this._crash7++; this._clean7 = 0; if (this._crash7 === 2) setTimeout(() => this.special('crash2'), 1200); } }
+      return _fx.call(this, kind, a);
+    },
+  });
+}
+ACHS.push(
+  { id: 'fetch', n: 'Good dog', d: 'Get fetched by a dog', k: 'fetched', v: 1, ic: '🐕' },
+  { id: 'birds', n: 'Bird watcher', d: 'Startle 10 flocks of birds', k: 'birds', v: 10, ic: '🦆' },
+  { id: 'hammy', n: 'Wheel of fortune', d: 'Make the class hamster run', k: 'hamster', v: 1, ic: '🐹' },
+  { id: 'gossip120', n: 'Hears everything', d: 'Hear 120 special lines', chk: () => heardTotal() >= 120, ic: '📰' },
+);
+
+
+// ═════════ v7: shared helpers for the new levels ═════════
+const EXTRA_NAMES = { mum: 'Mum', dad: 'Dad', lily: 'Lily', gran: 'Gran', sam: 'Sam', mmum: 'Mia’s mum', mdad: 'Mia’s dad' };
+{
+  const _spk = spkName; spkName = (id) => EXTRA_NAMES[id] || _spk(id);
+  const _find = findSpeaker; findSpeaker = function (L, id) { if (EXTRA_NAMES[id] && L && L.people) { const p = L.people.find((q) => q.who === id); if (p) return p; } return _find(L, id); };
+}
+function v7tree(b, x, z, s = 1, leafMats) {
+  b.cyl(x, 0, z, 0.32 * s, 3.2 * s, toon('#ffffff', { map: TEX.bark() }), { seg: 10, r2: 0.22 * s });
+  for (let i = 0; i < 9; i++) { const a = R() * TAU, r = rr(0.4, 1.5) * s; b.sphere(x + Math.cos(a) * r, 3.6 * s + rr(-0.2, 1.4) * s, z + Math.sin(a) * r, rr(1.0, 1.5) * s, pick(leafMats), { seg: 10 }); }
+}
+function v7fence(b, x0, z0, x1, z1, mat) {
+  const L2 = Math.hypot(x1 - x0, z1 - z0), n = Math.max(1, Math.floor(L2 / 1.2)); const ry = Math.atan2(x1 - x0, z1 - z0);
+  for (let i = 0; i <= n; i++) { const t = i / n; b.box(lerp(x0, x1, t), 0, lerp(z0, z1, t), 0.14, 1.5, 0.08, mat, { collide: false, ry }); }
+  for (const y of [0.4, 1.1]) b.box((x0 + x1) / 2, y, (z0 + z1) / 2, 0.04, 0.1, L2, mat, { ry, collide: false });
+}
+function v7tri(b, x, y, z, ry, s, mat) { const sh = new THREE.Shape(); sh.moveTo(-0.12 * s, 0); sh.lineTo(0.12 * s, 0); sh.lineTo(0, -0.22 * s); sh.closePath(); b.geo(new THREE.ShapeGeometry(sh), x, y, z, mat, { ry, cast: false }); }
+function v7bunting(b, a, c, n, mats) { // flags hanging on a sagging string from a to c
+  for (let i = 0; i <= n; i++) { const t = i / n; const x = lerp(a[0], c[0], t), z = lerp(a[2], c[2], t), y = lerp(a[1], c[1], t) - Math.sin(t * Math.PI) * 0.6; v7tri(b, x, y, z, Math.atan2(c[0] - a[0], c[2] - a[2]) + Math.PI / 2, 1.3, mats[i % mats.length]); }
+}
+function v7arch(b, x, y, z, ry, r, mats) { // a balloon arch around a ring
+  for (let i = 0; i <= 14; i++) { const a = i / 14 * Math.PI; b.push(x, 0, z, ry); b.sphere(Math.cos(a) * r, y - 1.0 + Math.sin(a) * (r + 1.0), 0, 0.26, mats[i % mats.length], { collide: false, seg: 10 }); b.pop(); }
+}
+function v7nightTex(moon = true) {
+  return canvasTex(512, 256, (g, w, h) => {
+    const gr = g.createLinearGradient(0, 0, 0, h); gr.addColorStop(0, '#1a2350'); gr.addColorStop(1, '#4a4a78'); g.fillStyle = gr; g.fillRect(0, 0, w, h);
+    g.fillStyle = '#fff6d8'; for (let i = 0; i < 70; i++) { g.globalAlpha = rr(0.3, 1); g.fillRect(rr(0, w), rr(0, h * 0.7), 2, 2); } g.globalAlpha = 1;
+    if (moon) { g.fillStyle = '#fff2c8'; g.beginPath(); g.arc(w * 0.78, h * 0.25, 22, 0, TAU); g.fill(); }
+    let x = 0; while (x < w) { const bw = rr(40, 90), bh = rr(40, 90); g.fillStyle = '#2a2a44'; g.fillRect(x, h - bh, bw, bh); g.fillStyle = '#ffd27a'; for (let k = 0; k < 3; k++) if (R() < 0.6) g.fillRect(x + rr(6, bw - 16), h - bh + rr(8, bh - 20), 10, 12); x += bw + rr(4, 16); }
+  }, { repeat: false });
+}
+const v7wireL = (D) => { // the per-level hookups the earlier wrappers give the original levels
+  const ob = D.build;
+  D.build = function (L2, b) { CAST_Q = (CAST_IN[D.id] || []).slice(); TEACH_Q = (TEACH_IN[D.id] || []).slice(); ob.call(this, L2, b); CAST_Q = []; TEACH_Q = []; L2.chatter = (L2.chatter || []).concat(LEVEL_CHAT[D.id] || [], LEVEL_CHAT[D.id] || []); };
+};
+
+// ═════════ v7: BONUS · MIA’S BIRTHDAY PARTY ═════════
+const PARTY_LEVEL = {
+  id: 'party', name: 'Mia’s Party', place: 'Sunday · 12:30 pm · 14 Elm St.', seed: 149, gold: 70, silver: 115, bonus: true, outdoor: true, ceil: 18,
+  story: ['Sunday. 12:30 pm. The garden behind 14 Elm Street.', 'Sam made it. The whole class is here. So is the bouncy castle.', 'Mia is by the gift table. Sam’s card is still upstairs.', 'Fly it through the balloon arches and land it with the presents.'],
+  outro: 'Mia opens the card first. Everyone sees her smile. Jake says “aww” very loudly.',
+  build(L, b) {
+    L.outdoor = true;
+    L.sun = { dir: v3(0.5, 0.75, 0.35), color: 0xffe2b0, intensity: 3.6 };
+    L.center = v3(0, 2, 4); L.span = 50; L.hemi = { sky: 0xa8d0f0, ground: 0x7a8a4a, intensity: 1.35 }; L.amb = 0.35;
+    L.fog = { color: 0xf6e2c0, near: 60, far: 180 }; L.bg = 0xf3dcb4; L.lineFar = 70; L.exposure = 1.0;
+    L.group.add(makeSky(0x6fa8e0, 0xf8e0b8, L.sun.dir));
+    const leaf = [toon('#d98a2a'), toon('#e8b23a'), toon('#8aa03a'), toon('#c9702a')];
+    const bal = [toon('#e94e3c'), toon('#f2c14e'), toon('#3d8ac9'), toon('#e07a9a'), toon('#4aa36a'), toon('#f4f1ea')];
+    const grass = toon('#ffffff', { map: TEX.grass() });
+    b.aabb(-70, -0.3, -70, 70, 0, 70, grass, { uv: 6, tag: 'floor' });
+    b.aabb(-8, 0, -14, 8, 0.014, -9.5, toon('#ffffff', { map: TEX.tiles('#d8c8a8', '#c8b898', 2) }), { uv: 1.2, collide: false });
+    // the house (back wall faces the garden)
+    const pinkW = toon('#ffffff', { map: TEX.plaster('#f0c8c8') });
+    b.aabb(-12, 0, -26, 12, 8, -14, pinkW, { uv: 2 });
+    { const sh = new THREE.Shape(); sh.moveTo(-6.4, 0); sh.lineTo(0, 3.2); sh.lineTo(6.4, 0); sh.closePath(); const rg = new THREE.ExtrudeGeometry(sh, { depth: 24.6, bevelEnabled: false }); rg.translate(0, 0, -12.3); b.geo(rg, 0, 8, -20, toon('#7a3e2e'), { ry: Math.PI / 2 }); b.col.add(v3(-12.3, 8, -26.4), v3(12.3, 10.8, -13.6)); }
+    for (const x of [-8, -4, 4, 8]) for (const y of [1.2, 4.6]) { if (y < 2 && Math.abs(x) < 5) continue; b.aabb(x - 0.9, y, -13.98, x + 0.9, y + 1.6, -13.94, M.glass, { collide: false, cast: false }); b.aabb(x - 1, y - 0.1, -13.94, x + 1, y, -13.75, M.white, { collide: false }); }
+    b.aabb(-1.0, 4.4, -13.99, 1.0, 6.2, -13.93, M.black, { collide: false }); b.aabb(-1.1, 4.3, -13.93, 1.1, 4.4, -13.6, M.white, { collide: false }); // Mia's open window
+    b.aabb(-2.6, 0, -13.98, 2.6, 2.6, -13.94, M.glass, { collide: false, cast: false }); b.aabb(-0.04, 0, -13.94, 0.04, 2.6, -13.9, M.white, { collide: false }); // patio doors
+    sign(b, 0, 7.0, -13.92, 0, 'HAPPY BIRTHDAY MIA', 3.6, 0.6, '#c94d6a', '#fff8e8');
+    v7bunting(b, [-11, 7.6, -13.8], [-16, 4, 18], 16, bal); v7bunting(b, [11, 7.6, -13.8], [16, 4, 18], 16, bal); v7bunting(b, [-12, 6, -13.8], [12, 6, -13.8], 14, bal);
+    // fence, trees, shed, flowerbeds
+    const fw = toon('#ffffff', { map: TEX.wood('#c9a070') });
+    v7fence(b, -20, -14, -20, 24, fw); v7fence(b, 20, -14, 20, 24, fw); v7fence(b, -20, 24, 20, 24, fw);
+    b.col.add(v3(-20.3, 0, -30), v3(-20, 20, 26)); b.col.add(v3(20, 0, -30), v3(20.3, 20, 26)); b.col.add(v3(-21, 0, 24), v3(21, 20, 24.3)); b.col.add(v3(-30, 18, -30), v3(30, 20, 30));
+    for (const [x, z, s] of [[-16, 19, 1.3], [16, 19, 1.4], [-17, -7, 1.1], [17, 6, 1.0]]) v7tree(b, x, z, s, leaf);
+    b.aabb(12.5, 0, -7.5, 15.5, 2.4, -4.5, toon('#ffffff', { map: TEX.planks('#7aa06a') }), { uv: 1 }); b.aabb(12.3, 2.4, -7.7, 15.7, 2.55, -4.3, toon('#7a3e2e'));
+    sign(b, 14, 1.6, -4.49, 0, 'SHED', 0.8, 0.25, '#5a4a3a');
+    for (let i = 0; i < 14; i++) { const x = -18 + i * 0.5; b.sphere(x, 0.25, -11.5 + Math.sin(i) * 0.3, 0.22, pick([M.red, M.yellow, M.pink, toon('#b088d8')]), { collide: false, seg: 8 }); }
+    b.aabb(-19.5, 0, -12.5, -12, 0.25, -10.5, toon('#6a4a2a'), { collide: false });
+    // bouncy castle
+    const CX = -9, CZ = 6, red = toon('#e94e3c'), yel = toon('#f2c14e'), blu = toon('#3d8ac9');
+    b.aabb(CX - 2.5, 0, CZ - 2.5, CX + 2.5, 1.0, CZ + 2.5, red, { tag: 'bounce', uv: 0 });
+    for (const [x0, z0, x1, z1] of [[-2.5, -2.5, 2.5, -2.2], [-2.5, 2.2, 2.5, 2.5], [-2.5, -2.2, -2.2, 2.2], [2.2, -2.2, 2.5, 0.6]]) b.aabb(CX + x0, 1.0, CZ + z0, CX + x1, 1.8, CZ + z1, yel, { tag: 'bounce', uv: 0 });
+    for (const [sx, sz] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) { b.cyl(CX + sx * 2.5, 0, CZ + sz * 2.5, 0.45, 3.0, blu, { seg: 12 }); b.sphere(CX + sx * 2.5, 3.0, CZ + sz * 2.5, 0.5, red, { seg: 12 }); }
+    // balloon arches over the route
+    v7arch(b, 0, 4.8, -6, 0, 1.7, bal); v7arch(b, -5, 3.2, 0, 0.64, 1.6, bal); v7arch(b, -3, 6.0, 19, Math.PI / 2, 1.7, bal); v7arch(b, 5, 4.2, 16, 1.28, 1.6, bal);
+    for (const [x, z] of [[-14, -10], [14, -10], [-18, 10], [18, 14], [12, 16]]) { for (let k = 0; k < 4; k++) { const m = new THREE.Mesh(new THREE.SphereGeometry(0.28, 10, 8), pick(bal)); m.position.set(x + rr(-0.3, 0.3), 2.2 + k * 0.25 + rr(0, 0.3), z + rr(-0.3, 0.3)); m.scale.y = 1.2; L.group.add(m); const ph = R() * 6; b.update((dt, t) => { m.position.y += Math.sin(t * 1.3 + ph) * 0.002; }); } b.cyl(x, 0, z, 0.01, 2.2, M.white, { collide: false, seg: 3 }); }
+    // the long party table with the cake
+    const cloth = toon('#fff4f0');
+    table(b, 8, 4, 0, 5, 1.2, 0.76, cloth, M.woodLight); bench(b, 8, 3.0, 0, 5); bench(b, 8, 5.0, 0, 5);
+    b.cyl(7, 0.76, 4, 0.42, 0.28, toon('#f4e8d8'), { seg: 20 }); b.cyl(7, 1.04, 4, 0.3, 0.24, toon('#e07a9a'), { seg: 20 }); b.cyl(7, 1.28, 4, 0.18, 0.18, toon('#f4e8d8'), { seg: 16 });
+    for (let i = 0; i < 7; i++) { const a = i / 7 * TAU; b.cyl(7 + Math.cos(a) * 0.12, 1.46, 4 + Math.sin(a) * 0.12, 0.012, 0.1, toon(pick(['#3d8ac9', '#f2c14e', '#e94e3c'])), { collide: false, seg: 4 }); b.sphere(7 + Math.cos(a) * 0.12, 1.59, 4 + Math.sin(a) * 0.12, 0.02, glow('#ffcf6a', 2.2), { collide: false, seg: 6 }); }
+    for (const x of [5.9, 6.6, 8.9, 10.2]) { b.cyl(x, 0.76, 3.7, 0.12, 0.02, M.white, { collide: false, seg: 12 }); b.cyl(x, 0.76, 4.3, 0.12, 0.02, M.white, { collide: false, seg: 12 }); }
+    b.cyl(9.9, 0.76, 4.0, 0.08, 0.22, toon('#e8a23a'), { collide: false, seg: 10 });
+    // gift table + presents
+    const GX = 10, GZ = 14;
+    table(b, GX, GZ, 0, 2, 1, 0.76, cloth, M.woodLight);
+    for (const [x, z, w, h, c] of [[GX - 1.6, GZ - 0.2, 0.5, 0.4, '#3d8ac9'], [GX - 1.5, GZ + 0.45, 0.4, 0.55, '#e94e3c'], [GX + 1.5, GZ + 0.1, 0.55, 0.35, '#4aa36a'], [GX + 1.4, GZ - 0.5, 0.35, 0.6, '#f2c14e'], [GX - 1.3, GZ - 0.8, 0.3, 0.3, '#b088d8']]) { b.aabb(x - w / 2, 0, z - w / 2, x + w / 2, h, z + w / 2, toon(c)); b.aabb(x - 0.04, 0, z - w / 2 - 0.005, x + 0.04, h + 0.005, z + w / 2 + 0.005, M.white, { collide: false }); }
+    sign(b, GX, 1.6, GZ + 0.62, Math.PI, 'PRESENTS', 1.2, 0.3, '#c94d6a', '#fff8e8');
+    b.cyl(GX - 0.9, 0.76, GZ + 0.62, 0.012, 0.8, M.woodDark, { collide: false, seg: 4 }); b.cyl(GX + 0.9, 0.76, GZ + 0.62, 0.012, 0.8, M.woodDark, { collide: false, seg: 4 });
+    // barbecue: its smoke is a thermal
+    const BX = -12, BZ = 13;
+    b.cyl(BX, 0, BZ, 0.05, 0.8, M.metalDark, { seg: 6 }); b.cyl(BX, 0.8, BZ, 0.5, 0.3, M.black, { seg: 16 }); b.cyl(BX, 1.1, BZ, 0.48, 0.02, glow('#ff8a3a', 1.6), { collide: false, seg: 16 });
+    L.zones.push({ min: v3(BX - 1.1, 0.8, BZ - 1.1), max: v3(BX + 1.1, 11, BZ + 1.1), vel: v3(0, 3.8, 0), fxSize: 0.08, tint: 0xd8d8d8 });
+    // piñata on a frame — fly into it!
+    b.cyl(-0.2, 0, 12, 0.08, 5.2, M.woodDark, { seg: 8 }); b.cyl(4.2, 0, 12, 0.08, 5.2, M.woodDark, { seg: 8 }); b.cyl(-0.2, 5.1, 12, 0.07, 4.4, M.woodDark, { seg: 8, rz: -Math.PI / 2 });
+    { const pg2 = new THREE.Group(); pg2.position.set(2, 5.1, 12); L.group.add(pg2);
+      const str = new THREE.Mesh(new THREE.CylinderGeometry(0.008, 0.008, 1.2, 4), M.white); str.position.y = -0.6; pg2.add(str);
+      const body = new THREE.Group(); body.position.y = -1.5; pg2.add(body);
+      ['#e94e3c', '#f2c14e', '#3d8ac9', '#e07a9a', '#4aa36a'].forEach((c, i) => { const m = new THREE.Mesh(new THREE.CylinderGeometry(0.3 - i * 0.03, 0.32 - i * 0.03, 0.12, 12), toon(c)); m.position.y = 0.24 - i * 0.12; m.castShadow = true; body.add(m); });
+      const hd = new THREE.Mesh(new THREE.SphereGeometry(0.16, 10, 8), toon('#f2c14e')); hd.position.set(0, 0.32, 0.22); body.add(hd);
+      let gone = 0;
+      b.update((dt, t, fl) => { pg2.rotation.z = Math.sin(t * 1.4) * 0.25; pg2.rotation.x = Math.sin(t * 1.1 + 1) * 0.15; gone -= dt; body.visible = gone <= 0;
+        if (gone <= 0 && !L.passive && fl.state === 'fly' && body.getWorldPosition(_a2).distanceTo(fl.pos) < 0.7) {
+          gone = 8; stat('pinata'); for (const c of [0xffd040, 0xe94e3c, 0x3d8ac9, 0xe07a9a, 0x4aa36a]) bursts.emit(_a2, 14, c, 3, -1.5);
+          Audio.noiseHit(0.5, 600, 0.3, 0.8); Audio.star(); if (Game.level === L && Game.mode === 'play') { UI.big('Piñata!', 1.1); Game.addScore(300, 'piñata'); }
+          for (const p of L.people) if (p instanceof Person && p.state === 'idle' && R() < 0.5 && p.worldPos(_pw2).distanceTo(fl.pos) < 9) p.say(pick(['CANDY!', 'Piñata!', 'Woohoo!', 'Sweets!']), 1.4, '#fff3c4');
+        } }); }
+    // speaker + lanterns
+    b.aabb(15.2, 0, 1.0, 16.0, 1.2, 1.8, M.black); b.cyl(15.6, 0.7, 1.81, 0.25, 0.02, M.metalDark, { rx: Math.PI / 2, collide: false, seg: 14 });
+    // ── people ──
+    L.chatter = ['Cake soon?', 'Best party ever!', 'Bounce higher!', 'Where’s Sam?', 'Pass the crisps!'];
+    adult(L, b, 11.2, 4.0, -Math.PI / 2, { react: ['wave', 'cheer'] }); // Mrs. Bell on cake duty
+    const zo = seated(L, b, 6.5, 3.0, 0, { seatY: 0.45 });
+    const bouncers = [];
+    bouncers.push(kid(L, b, CX - 0.8, CZ - 0.6, 0.4, { y: 1.0, react: ['cheer', 'dance'] }));
+    seated(L, b, 7.5, 5.0, Math.PI, { seatY: 0.45 });
+    kid(L, b, -5.6, 9.4, -0.6, { react: ['cheer', 'point'] });
+    seated(L, b, 9.5, 3.0, 0, { seatY: 0.45 });
+    kid(L, b, 12.4, 8.2, -1.2, { react: ['cheer', 'wave'] });
+    kid(L, b, GX + 1.6, GZ + 1.6, Math.PI + 0.6, { react: ['cheer', 'wave'] });
+    bouncers.push(kid(L, b, CX + 0.9, CZ + 0.8, 2.6, { y: 1.0, react: ['cheer', 'dance'] }));
+    kid(L, b, BX + 2.0, BZ + 2.4, -2.2, { react: ['point', 'cheer'] });
+    kid(L, b, 3.8, 8.2, 0.4, { react: ['cheer', 'clap'] });
+    kid(L, b, 14.4, 0.4, -0.8, { react: ['dance', 'cheer'] }); kid(L, b, 13.6, 2.2, 2.4, { react: ['dance', 'clap'] });
+    bouncers.forEach((p, i) => b.update((dt, t) => { p.root.position.y = 1.0 + Math.abs(Math.sin(t * 3.2 + i * 1.7)) * 0.45; }));
+    const mm = adult(L, b, -3.2, -11.6, 0.2, { hair: 'long', shirt: '#e07a9a', react: ['wave', 'cheer'], lines: { wave: ['Hello, little plane!'], cheer: ['Oh, it’s lovely!'] }, chat: ['Who wants lemonade?', 'Shoes off the castle!', 'Cake in ten!', 'Mia, smile!'] }); mm.who = 'mmum';
+    const md = adult(L, b, BX - 0.9, BZ - 0.3, 1.2, { hair: 'cap', capC: '#3d6fb4', shirt: '#4a7a3a', react: ['point', 'wave'], lines: { point: ['Not over the grill!'], wave: ['Sausages are ready!'] }, chat: ['Sausages in five!', 'Who wants a burger?', 'Smoke’s in my eyes!', 'Medium or well done?'] }); md.who = 'mdad';
+    const mia = kid(L, b, GX - 0.2, GZ + 1.3, Math.PI, { kind: 'mia', shirt: '#c94d3a', pants: '#2c3f66', hairC: '#4a2a14', hair: 'pony', backpack: false, glasses: false, react: ['wave', 'cheer'], lines: { wave: ['Sam’s card!', 'Over here!'], cheer: ['♥', 'Best present!'] } });
+    { const hat = new THREE.Mesh(new THREE.ConeGeometry(0.12, 0.3, 10), toon('#3d8ac9')); hat.position.set(0, 1.62, 0); mia.root.add(hat); }
+    dog(L, b, 2, 6, { box: [-14, -10, 16, 20], color: '#d9a05a', dark: '#8a5a2a', name: 'Biscuit' });
+    pw(L, 'tailwind', 0, 4.6, -2); pw(L, 'shield', -6, 2.6, 12); pw(L, 'magnet', 6, 3.4, 8);
+    L.spawn = { pos: v3(0, 5.3, -12.8), yaw: 0, pitch: -0.05 };
+    L.stages = [
+      { kind: 'rings', text: 'Through the balloon arches', items: [{ p: v3(0, 4.8, -6), n: N(0, 0, 1), r: 0.85 }, { p: v3(-5, 3.2, 0), n: N(-0.6, 0, 0.8), r: 0.8 }, { p: v3(-9, 3.1, 6), n: N(0, 0, 1), r: 0.8 },
+        { p: v3(BX, 6.0, BZ + 0.4), n: N(0, 1, 0), r: 0.9 }, { p: v3(-3, 6.0, 19), n: N(1, 0, 0), r: 0.85 }, { p: v3(5, 4.2, 16), n: N(0.95, 0, -0.3), r: 0.8 }] },
+      { kind: 'pages', text: 'Find the 3 party hats', items: [{ p: v3(9.6, 1.15, 4) }, { p: v3(14, 2.9, -6) }, { p: v3(CX, 1.5, CZ) }] },
+      { kind: 'land', text: 'Land the card with the presents', label: 'MIA', pad: box3(GX - 1.0, 0.76, GZ - 0.5, GX + 1.0, 1.15, GZ + 0.5), hint: 'Brake with {BRAKE} and set it down on the gift table.' },
+    ];
+    L.stars = [v3(CX - 2.5, 3.95, CZ - 2.5), v3(8, 0.35, 4), v3(4, 11.6, -20)];
+    L.hints = [{ box: box3(BX - 1.5, 0, BZ - 1.5, BX + 1.5, 11, BZ + 1.5), text: 'Barbecue smoke lifts you — ride it up!' }, { box: box3(CX - 2.6, 0, CZ - 2.6, CX + 2.6, 3, CZ + 2.6), text: 'The bouncy castle bounces you back up.' }];
+    L.startHint = 'Out of Mia’s window — the party’s in the garden!';
+    L.dustMin = v3(-18, 0.5, -12); L.dustMax = v3(18, 9, 22); L.dustN = 260; L.dustOpts = { vy: 0.05, opacity: 0.7 };
+  },
+};
+LEVELS.push(PARTY_LEVEL);
+CAST_IN.party = ['zoe', 'jake', 'priya', 'leo', 'tom', 'ana', 'ollie', 'nina', 'ben', 'rosa'];
+TEACH_IN.party = ['bell'];
+QUESTS.party = { from: 'jake', to: 'zoe', ask: 'Tell Zoe: Mia LOVED the card!', thanks: 'I KNEW she would!' };
+LEVEL_CHAT.party = ['Is that a bouncy CASTLE?', 'Save me a slice!', 'Mia’s ten now. Or eleven?', 'Who brought the dog?', 'The piñata looks scared', 'Sausages!', 'Biscuit stole a crisp', 'Pass the parcel next!', 'Best garden on the street', 'Sam’s card is the best one'];
+CONVOS_BY.party = [['What did you get her?', 'Glitter pens.', 'Same.'], ['Is Sam here?', 'His card is.', 'Aww.'], ['Cake first or castle first?', 'Castle. Then cake. Then castle.']];
+THEMES.party = { bpm: 112, chords: [[60, 64, 67, 72], [65, 69, 72, 77], [67, 71, 74, 79], [60, 64, 67, 72]], lead: 'square', leadV: 0.03, kick: 0.16 };
+SPECIALS.party = { lines: ['Sam’s card! Out the window!', 'The castle! Bounce it!', 'A star on the castle!', 'Biscuit, NO!', 'Happy birthday, Mia!', 'Party power-up!', 'Missed the cake by THAT much!', 'Skimming the lawn!', 'A new fold for the party!', 'It flew past the piñata!', 'Second star — party trick!', 'Three stars! Gold star guest!', 'U-turn round the balloons!', 'Splat. Into the crisps.', 'Faster than Jake at the cake!', 'Brakes! By the presents!', 'A whole minute, no crash!', 'The gift table! Land it!', 'Combo! Everyone’s cheering!', 'Out of gust — try the barbecue!'], who: [0, 0, 0, 0, 'mia', 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 'mia', 0, 0] };
+CUTS.party = [['zoe', 'Mia’s checked the window ten times.'], ['jake', 'Sam’s card is coming. I can feel it.'], ['bell', 'Cake in ten minutes!'], ['mia', '…he’d better hurry.']];
+v7wireL(PARTY_LEVEL);
+
+// ═════════ v7: BONUS · SAM’S HOUSE ═════════
+const HOME_LEVEL = {
+  id: 'home', name: 'Sam’s House', place: 'Sunday · 7:50 pm · Sam’s house', seed: 163, gold: 65, silver: 105, bonus: true, ceil: 6,
+  story: ['Sunday. 7:50 pm. Sam’s house.', 'A text from Mia: “Look out your window.” She’s in the street with a plane of her own.', 'Lily wants the plane. Dad is asleep. Mum is cooking. The cat is judging.', 'Down from the loft, round the house, and out the front window.'],
+  outro: 'Two paper planes cross over Elm Street. Mum calls “Dinner!” Nobody hears.',
+  build(L, b) {
+    const X0 = -7, X1 = 7, Z0 = -5, Z1 = 5, H = 6;
+    L.sun = { dir: v3(-0.4, 0.8, 0.5), color: 0xffd8a8, intensity: 1.6 };
+    L.center = v3(0, 2.5, 0); L.span = 22; L.hemi = { sky: 0xffd6a8, ground: 0x6a4a3a, intensity: 1.25 }; L.bg = 0x2a2a48;
+    const wall = toon('#ffffff', { map: TEX.plaster('#e8dcc0') }), plank = toon('#ffffff', { map: TEX.planks('#b8804e') });
+    room(b, { x0: X0, x1: X1, z0: Z0, z1: Z1, h: H, wall, floor: plank, floorUV: 2, holes: { '+z': [{ a0: -2.0, a1: 0.5, y0: 1.0, y1: 2.6 }], '-z': [{ a0: -6.4, a1: -5.0, y0: 4.0, y1: 5.4 }] } });
+    // night outside both windows
+    const night = new THREE.MeshBasicMaterial({ map: v7nightTex(true) });
+    { const m = new THREE.Mesh(new THREE.PlaneGeometry(4, 2.4), night); m.position.set(-5.7, 4.7, Z0 - 0.8); L.group.add(m); }
+    { const m = new THREE.Mesh(new THREE.PlaneGeometry(16, 7), new THREE.MeshBasicMaterial({ map: v7nightTex(false) })); m.position.set(-1, 3, Z1 + 9); m.rotation.y = Math.PI; L.group.add(m); }
+    b.aabb(-9, -0.3, Z1 + 0.3, 7, 0, Z1 + 10, toon('#5a5a62'), { uv: 0, collide: true, tag: 'floor' }); b.aabb(-9, 0, Z1 + 3.4, 7, 0.01, Z1 + 3.6, toon('#e8e0c8'), { collide: false });
+    b.cyl(2.6, 0, Z1 + 2.4, 0.06, 3.2, M.metalDark, { seg: 6 }); b.sphere(2.6, 3.3, Z1 + 2.4, 0.2, glow('#ffd27a', 2), { seg: 10, collide: false });
+    b.col.add(v3(-9, 0, Z1 + 9.6), v3(7, 6, Z1 + 10)); b.col.add(v3(-9, 6, Z1), v3(7, 6.3, Z1 + 10)); b.col.add(v3(-9.3, 0, Z1), v3(-9, 6, Z1 + 10)); b.col.add(v3(7, 0, Z1), v3(7.3, 6, Z1 + 10));
+    windowFrame(b, '+z', [Z1, Z1 + 0.3], -2.0, 0.5, 1.0, 2.6, { cols: 1, rows: 1, open: 0 });
+    // the loft (Sam’s room) + railing + stairs
+    b.aabb(X0, 2.85, Z0, X1, 3.05, -1.0, plank, { uv: 2, tag: 'floor' });
+    b.aabb(X0, 3.7, -1.06, 5.6, 3.78, -0.94, M.woodDark);
+    for (let x = X0 + 0.3; x < 5.6; x += 0.45) b.box(x, 3.05, -1.0, 0.04, 0.65, 0.04, M.woodDark, { collide: false });
+    for (let i = 0; i < 10; i++) b.aabb(5.6, 0, 4.6 - (i + 1) * 0.56, 6.95, (i + 1) * 0.295, 4.6 - i * 0.56, plank, { uv: 1, tag: 'floor' });
+    // Sam's room upstairs
+    const LY = 3.05;
+    b.aabb(-6.9, LY, -4.9, -4.9, LY + 0.45, -3.0, M.woodDark); b.aabb(-6.85, LY + 0.45, -4.85, -4.95, LY + 0.62, -3.05, toon('#3d6fb4')); b.aabb(-6.7, LY + 0.62, -4.8, -5.1, LY + 0.74, -4.4, M.white);
+    b.aabb(1.0, LY + 0.72, -4.9, 3.4, LY + 0.77, -4.1, M.wood); for (const x of [1.05, 3.3]) b.aabb(x, LY, -4.85, x + 0.06, LY + 0.72, -4.15, M.woodDark);
+    b.cyl(3.1, LY + 0.77, -4.7, 0.02, 0.45, M.metalDark, { seg: 6, collide: false }); b.sphere(3.1, LY + 1.25, -4.65, 0.09, glow('#ffe6a8', 2.4), { seg: 10, collide: false });
+    for (let i = 0; i < 4; i++) b.box(1.5 + i * 0.12, LY + 0.77, -4.5, 0.21, 0.004, 0.3, M.paper, { ry: rr(-0.3, 0.3), collide: false });
+    chair(b, 2.2, -3.6, Math.PI, { wood: M.woodDark });
+    b.aabb(-2.4, LY + 1.55, -4.95, 0.2, LY + 1.6, -4.68, M.wood);
+    for (let i = 0; i < 4; i++) { const m = new THREE.Mesh(planeGeometry(pick(['dart', 'glider', 'swallow'])), toon(pick(['#f4f1ea', '#cfe3f2', '#f6e7a8', '#f2c8c8']))); m.scale.setScalar(1.3); m.position.set(-2.0 + i * 0.6, LY + 1.62, -4.8); m.rotation.y = rr(-0.4, 0.4); L.group.add(m); }
+    poster(b, -3.6, LY + 1.6, Z0 + 0.02, 0, 'team', 0.7, 1.0); poster(b, 4.6, LY + 1.6, Z0 + 0.02, 0, 'solar', 0.7, 1.0);
+    sign(b, 0.8, LY + 2.25, Z0 + 0.02, 0, 'SAM’S ROOM · KNOCK', 1.4, 0.25, '#3d6fb4', '#fff8e8');
+    { const mp = new THREE.Group(); mp.position.set(-1, 5.3, -3); L.group.add(mp); const pm = new THREE.Mesh(planeGeometry('glider'), toon('#e94e3c', { side: THREE.DoubleSide })); pm.scale.setScalar(4); mp.add(pm); const s2 = new THREE.Mesh(new THREE.CylinderGeometry(0.005, 0.005, 0.7, 3), M.white); s2.position.y = 0.35; mp.add(s2); b.update((dt, t) => { mp.rotation.y = Math.sin(t * 0.4) * 0.6; }); }
+    b.aabb(-4.4, LY + 0.001, -4.2, -1.8, LY + 0.01, -1.6, toon('#c94d6a'), { collide: false });
+    // kitchen under the loft
+    b.aabb(1.0, 0, -4.95, 5.3, 0.9, -4.3, M.white); b.aabb(0.98, 0.9, -4.97, 5.32, 0.95, -4.25, toon('#8a8f92'));
+    b.aabb(0.0, 0, -4.95, 0.95, 2.0, -4.2, toon('#f4f4f0')); b.aabb(0.94, 1.2, -4.25, 0.96, 1.8, -4.22, M.metalDark, { collide: false });
+    for (let i = 0; i < 5; i++) b.box(rr(0.1, 0.85), rr(0.6, 1.8), -4.19, 0.08, 0.08, 0.01, toon(pick(['#e94e3c', '#f2c14e', '#3d8ac9'])), { collide: false });
+    b.aabb(1.0, 1.6, -4.95, 5.3, 2.4, -4.6, M.woodLight); hangingLamp(b, 3.2, -2.8, 2.85, { len: 0.4, drop: 0.3 });
+    // kitchen island with the soup pot — the steam lifts you
+    const IX = 3.2, IZ = 0.6;
+    b.aabb(IX - 1.0, 0, IZ - 0.5, IX + 1.0, 0.9, IZ + 0.5, M.woodLight); b.aabb(IX - 1.02, 0.9, IZ - 0.52, IX + 1.02, 0.95, IZ + 0.52, toon('#8a8f92'));
+    b.cyl(IX, 0.95, IZ, 0.22, 0.28, M.steel, { seg: 14 }); b.cyl(IX, 0.95, IZ, 0.24, 0.02, glow('#ff7a3a', 1.4), { collide: false, seg: 14 });
+    L.zones.push({ min: v3(IX - 0.6, 1.0, IZ - 0.6), max: v3(IX + 0.6, 5.7, IZ + 0.6), vel: v3(0, 3.4, 0), fxSize: 0.05, tint: 0xffffff });
+    // dining table
+    table(b, 3.2, 3.3, 0, 2.0, 1.0, 0.76, toon('#f4f1ea'), M.woodDark); for (const [x, z, ry] of [[2.5, 2.5, 0], [3.9, 2.5, 0], [2.5, 4.1, Math.PI], [3.9, 4.1, Math.PI]]) chair(b, x, z, ry, { wood: M.woodDark });
+    for (let i = 0; i < 6; i++) b.box(2.5 + i * 0.25, 0.76, 3.2 + rr(-0.2, 0.2), 0.03, 0.01, 0.18, toon(pick(['#e94e3c', '#3d8ac9', '#f2c14e', '#4aa36a'])), { ry: rr(0, 3), collide: false });
+    // living room: sofa, TV, coffee table, armchair, fish tank, fan
+    const sofa = toon('#7a5aa8'), sofaD = toon('#5a4088');
+    b.aabb(-5, 0, 3.2, -2, 0.45, 4.2, sofa); b.aabb(-5, 0.45, 3.9, -2, 1.0, 4.2, sofaD); b.aabb(-5.25, 0, 3.2, -5, 0.7, 4.2, sofaD); b.aabb(-2, 0, 3.2, -1.75, 0.7, 4.2, sofaD);
+    b.aabb(-5, 0, -4.95, -2, 0.5, -4.4, M.woodDark); b.box(-3.5, 0.55, -4.75, 1.6, 0.95, 0.08, M.black); b.box(-3.5, 0.6, -4.7, 1.45, 0.82, 0.02, glow('#9fd6ff', 1.3), { collide: false });
+    table(b, -3.5, 1.8, 0, 1.2, 0.6, 0.4, M.wood, M.woodDark); b.aabb(-5.6, 0.001, 0.6, -1.4, 0.01, 3.0, toon('#d9a05a'), { collide: false });
+    b.aabb(-6.9, 0, 2.4, -5.6, 0.45, 3.6, toon('#3a6a8a')); b.aabb(-6.9, 0.45, 2.4, -6.6, 1.1, 3.6, toon('#2a5a7a'));
+    b.aabb(-6.95, 0, -3.6, -6.4, 0.8, -1.8, M.woodDark);
+    b.box(-6.67, 0.8, -2.7, 0.5, 0.5, 1.6, new THREE.MeshBasicMaterial({ color: new THREE.Color(0.5, 0.85, 1.3), transparent: true, opacity: 0.55, depthWrite: false }));
+    { const fish = []; for (let i = 0; i < 4; i++) { const f = new THREE.Mesh(new THREE.SphereGeometry(0.04, 8, 6), toon(pick(['#ff8a3a', '#f2c14e', '#e94e3c']))); f.scale.z = 1.6; L.group.add(f); fish.push(f); }
+      b.update((dt, t) => fish.forEach((f, i) => { const a = t * (0.6 + i * 0.15) + i * 2; f.position.set(-6.67 + Math.sin(a * 1.3) * 0.12, 1.0 + Math.sin(a * 0.7 + i) * 0.12, -2.7 + Math.sin(a) * 0.65); f.rotation.y = Math.cos(a) > 0 ? 0 : Math.PI; })); }
+    ceilingFan(b, L, -3.5, 2.0, H, 1.0, 2.0);
+    b.cyl(-6.5, 0, 4.5, 0.03, 1.7, M.metalDark, { seg: 6 }); b.cyl(-6.5, 1.7, 4.5, 0.25, 0.3, glow('#ffe0a0', 1.6), { r2: 0.15, open: true, collide: false, seg: 12 });
+    hangingLamp(b, 3.2, 3.3, H, { len: 2.0, drop: 0.6 }); b.decal(3.6, 1.2, Z1 - 0.02, 1.1, 2.2, M.woodDark, { ry: Math.PI });
+    poster(b, -6.97, 2.0, 0.0, Math.PI / 2, 'curve', 0.7, 1.0);
+    // ── people & pets ──
+    L.chatter = ['Dinner in five!', 'Is that Sam’s plane?', 'Shoes off!', 'Who left the fridge open?', 'Mia’s outside!'];
+    const mum = adult(L, b, IX, IZ - 1.15, 0, { hair: 'bun', shirt: '#4a9a8a', react: ['point', 'wave'], lines: { point: ['Not near the soup!'], wave: ['Hello, flying homework!'] }, chat: ['Dinner in five!', 'Sam, wash your hands!', 'Who wants soup?', 'Lily, pens away!'] }); mum.who = 'mum';
+    const dadP = adult(L, b, -4.0, 3.55, Math.PI, { pose: 'sit', seatY: 0.45, shirt: '#c94d3a', hair: 'short', react: ['point'], lines: { point: ['Huh? What? Go long…'] }, chat: ['zzz…', 'Five more minutes…', 'zzZZ… goal…', 'I’m awake. I’m awake.'] }); dadP.who = 'dad'; dadP.sleepy = true;
+    const gran = adult(L, b, -6.25, 3.0, Math.PI / 2, { pose: 'sit', seatY: 0.45, hair: 'bun', hairC: '#d8d8d8', glasses: true, shirt: '#b088d8', react: ['wave', 'cheer'], lines: { wave: ['Oh! Hello, dear!'], cheer: ['Just like your grandpa!'] }, chat: ['Knit one, purl one…', 'In my day, planes were bigger.', 'Is that the Elm Street girl?', 'Sam’s got a sweetheart!'] }); gran.who = 'gran';
+    const lily = seated(L, b, 3.2, 4.1, Math.PI, { seatY: 0.45, scale: 0.78, hair: 'pony', hairC: '#7a4a1e', shirt: '#f2c14e', react: ['cheer', 'point'], lines: { cheer: ['MY plane!', 'Again! Again!'], point: ['Mum! Sam’s plane!'] }, chat: ['Can I fly it?', 'I drew a horse.', 'Sam loves Mia!', 'Is it dinner?'] }); lily.who = 'lily';
+    const miaO = kid(L, b, -0.75, Z1 + 2.6, Math.PI, { kind: 'mia', shirt: '#c94d3a', pants: '#2c3f66', hairC: '#4a2a14', hair: 'pony', backpack: false, glasses: false, react: ['wave', 'cheer'], lines: { wave: ['Sam! Down here!'], cheer: ['Yes!'] } });
+    { const pm = new THREE.Mesh(planeGeometry('dart'), toon('#f2c8c8', { side: THREE.DoubleSide })); pm.scale.setScalar(1.4); pm.position.set(0.25, 1.3, 0.1); pm.rotation.set(0.3, 0, 0.4); miaO.root.add(pm); }
+    cat(L, b, -2.5, 1.0, 4.05, 0, '#8a8a8a');
+    dog(L, b, 0, 1, { box: [-1.4, -0.6, 1.6, 2.4], color: '#f4efe4', dark: '#8a6a4a', name: 'Noodle' });
+    pw(L, 'tailwind', 0, 4.4, 2.5); pw(L, 'shield', -1, 3.0, 3.6); pw(L, 'magnet', 4.6, 1.6, -2.6);
+    L.spawn = { pos: v3(2.2, 4.3, -3.4), yaw: 0, pitch: -0.05 };
+    L.stages = [
+      { kind: 'rings', text: 'Off the loft, round the house', items: [{ p: v3(2.0, 4.0, 0.4), n: N(0, -0.2, 1), r: 0.5 }, { p: v3(-1.0, 2.5, 2.8), n: N(-1, 0, 0.2), r: 0.5 }, { p: v3(-5.4, 1.5, -0.4), n: N(0, 0, -1), r: 0.5 },
+        { p: v3(-3.5, 1.5, -3.0), n: N(1, 0, 0), r: 0.5 }, { p: v3(2.0, 1.5, -2.6), n: N(1, 0, 0), r: 0.5 }, { p: v3(IX, 4.2, IZ), n: N(0, 1, 0), r: 0.55 }] },
+      { kind: 'pages', text: 'Find the 3 thank-you cards', items: [{ p: v3(0.48, 2.3, -4.55) }, { p: v3(6.25, 2.45, 1.0) }, { p: v3(-5.9, 3.95, -3.9) }] },
+      { kind: 'exit', text: 'Out the front window — Mia’s waiting!', box: box3(-2.0, 1.0, Z1 + 0.3, 0.5, 2.6, Z1 + 1.2), dir: v3(0, 0, 1), hint: 'The front window is open. Mia’s in the street.' },
+    ];
+    L.stars = [v3(3.2, 0.35, 3.3), v3(-1, 5.75, -3), v3(-3.5, 0.45, 4.6)];
+    L.hints = [{ box: box3(IX - 1, 0, IZ - 1, IX + 1, 6, IZ + 1), text: 'Steam from Mum’s soup lifts you up.' }, { box: box3(-5, 4.5, 0.5, -2, 6, 3.5), text: 'Mind the ceiling fan!' }];
+    L.startHint = 'Off the loft — Mia’s outside!';
+    L.dustMin = v3(-7, 0.3, -5); L.dustMax = v3(7, 5.8, 5); L.dustN = 200;
+  },
+};
+LEVELS.push(HOME_LEVEL);
+CAST_IN.home = []; TEACH_IN.home = [];
+LEVEL_CHAT.home = ['Smells like soup', 'Who took the remote?', 'The cat’s on the sofa again', 'Lily, bedtime soon', 'Homework done, Sam?', 'Noodle chewed my slipper', 'Is it raining?', 'Grandpa folded planes too', 'Dad’s snoring', 'Mia texted twice!'];
+CONVOS_BY.home = [['Is Sam in love?', 'Lily!', '…is he though?'], ['Soup or pasta?', 'Soup. It’s Sunday.']];
+THEMES.home = { bpm: 72, chords: [[60, 64, 67, 71], [57, 60, 64, 69], [62, 65, 69, 72], [55, 59, 62, 67]], lead: 'sine', leadV: 0.04 };
+SPECIALS.home = { lines: ['SAM! Paper in the house?!', 'Off the loft! Wheee!', 'A star? In the house?', 'Not near the soup!', 'Mia’s outside. Go!', 'Power-up in the kitchen!', 'Nearly hit the fan!', 'Skimming the floorboards!', 'Lily wants that fold!', 'It flew past my nose, dear!', 'Another star by the sofa!', 'Every star in the house!', 'U-turn by the fridge!', 'Sam! The vase! Again!', 'Too fast for the living room!', 'It stopped by the TV!', 'A minute and nothing broken!', 'The window! She’s waiting!', 'Combo! Lily’s clapping!', 'Out of puff? Try the steam!'], who: ['mum', 0, 0, 'mum', 'mia', 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 'mia', 0, 0] };
+CUTS.home = [['mum', 'Sam, dinner in five!'], ['lily', 'Can I fly your plane? Pleeease?'], ['dad', 'zzz… go long, Sam…'], ['mia', '(from the street) Sam! Look out your window!']];
+v7wireL(HOME_LEVEL);
+
+// ═════════ v7: BONUS · RAINY DAY (the schoolyard, pouring) ═════════
+const YARD_DEF = LEVELS.find((D) => D.id === 'yard');
+const RAIN_LEVEL = {
+  id: 'rain', name: 'Rainy Day', place: 'Tuesday · 3:31 pm · pouring', seed: 179, gold: 85, silver: 140, bonus: true, outdoor: true, ceil: 24,
+  story: ['Tuesday. 3:31 pm. It’s pouring.', 'Mia forgot her umbrella. She’s sheltering under the old oak.', 'Rain makes paper soggy and slow. Shelters dry it out. The wind is wild.', 'Get the note across the yard and land it on her table — fast.'],
+  outro: 'Mia reads it under the oak. Then she shares her umbrella. Wait — she forgot it. They get soaked.',
+  build(L, b) {
+    YARD_DEF.build.call(this, L, b);
+    // weather: grey light, low fog, no sun in the sky
+    L.sun = { dir: v3(-0.3, 0.85, 0.4), color: 0xc8d4e0, intensity: 1.5 }; L.hemi = { sky: 0x9aa8b8, ground: 0x4a5040, intensity: 1.05 }; L.amb = 0.4;
+    L.fog = { color: 0x8e9aa4, near: 28, far: 120 }; L.bg = 0x8e9aa4; L.exposure = 0.95;
+    L.group.traverse((o) => { if (o.material && o.material.uniforms && o.material.uniforms.top) { o.material.uniforms.top.value.set(0x56626e); o.material.uniforms.bottom.value.set(0x9aa4ae); o.material.uniforms.sd.value.set(0, -1, 0); } });
+    { const cg = toon('#a4adb6'); for (const o of L.group.children) if (o.isMesh && o.position.y > 25 && o.geometry && o.geometry.parameters && o.geometry.parameters.radius === 1) o.material = cg; } // rain clouds
+    // no thermals in the rain; the wind is stronger and turns
+    L.zones = L.zones.filter((z) => !(z.vel && z.vel.y > 3));
+    const gust1 = (t) => sstep(0.1, 0.6, Math.sin(t * 0.7) * 0.5 + 0.5), gust2 = (t) => sstep(0.3, 0.8, Math.sin(t * 0.5 + 2) * 0.5 + 0.5);
+    for (const z of L.zones) if (z.vel && z.vel.x > 2) { z.vel.set(3.6, 0.1, 0); z.tint = 0xc8d8e8; }
+    L.zones.push({ min: v3(-6, 0.5, -10), max: v3(26, 12, 2), vel: v3(-3.0, -0.2, 0.6), active: gust2, fxSize: 0.06, tint: 0xc8d8e8 });
+    L.zones.push({ min: v3(-30, 0.5, 26), max: v3(4, 12, 36), vel: v3(2.4, 0, -0.8), active: gust1, fxSize: 0.06, tint: 0xc8d8e8 });
+    // bus shelter (open along z) + entrance canopy
+    const SX = -14, SZ = 10;
+    for (const [x, z] of [[-1.8, -1.2], [-1.8, 1.2], [1.8, -1.2], [1.8, 1.2]]) b.cyl(SX + x, 0, SZ + z, 0.05, 2.5, M.steel, { seg: 6 });
+    b.aabb(SX - 2.0, 2.5, SZ - 1.4, SX + 2.0, 2.62, SZ + 1.4, toon('#3d6f8a')); b.aabb(SX - 1.85, 0.3, SZ - 1.2, SX - 1.8, 2.4, SZ + 1.2, M.glassBlue, { collide: false });
+    bench(b, SX - 1.3, SZ, Math.PI / 2, 2.0); sign(b, SX, 2.2, SZ + 1.41, 0, 'BUS STOP', 0.9, 0.22, '#3d6f8a');
+    const DRY = [{ c: v3(11.5, 0, 32), r: 6.2, h: 8 }, { min: v3(SX - 2.1, 0, SZ - 1.5), max: v3(SX + 2.1, 2.5, SZ + 1.5) }, { min: v3(-3, 0, -24.5), max: v3(3, 3.2, -22.4) }];
+    const isDry = (p) => DRY.some((d) => d.c ? Math.hypot(p.x - d.c.x, p.z - d.c.z) < d.r && p.y < d.h : p.x > d.min.x && p.x < d.max.x && p.y > d.min.y && p.y < d.max.y && p.z > d.min.z && p.z < d.max.z);
+    // puddles with ripples
+    const pud = new THREE.MeshBasicMaterial({ color: 0x5a6878, transparent: true, opacity: 0.75, depthWrite: false });
+    const rip = new THREE.MeshBasicMaterial({ color: 0xc8d8e8, transparent: true, opacity: 0.5, depthWrite: false, side: THREE.DoubleSide });
+    const ripples = [];
+    for (const [x, z, r] of [[-20, 20, 2.4], [2, 4, 1.6], [14, 14, 1.8], [-4, -6, 1.4], [20, 30, 2.0], [-10, 30, 1.6], [6, -14, 1.5]]) {
+      const m = new THREE.Mesh(new THREE.CircleGeometry(r, 24), pud); m.rotation.x = -Math.PI / 2; m.position.set(x, 0.016, z); m.scale.set(1, 0.7 + R() * 0.3, 1); L.group.add(m);
+      for (let k = 0; k < 4; k++) { const q = new THREE.Mesh(new THREE.RingGeometry(0.08, 0.11, 16), rip); q.rotation.x = -Math.PI / 2; L.group.add(q); ripples.push({ q, x, z, r, t: R() }); }
+    }
+    // the rain itself: streaks that follow the camera
+    const RN = 1400, rp = new Float32Array(RN * 6), area = 26;
+    for (let i = 0; i < RN; i++) { const x = rr(-area, area), y = rr(0, 22), z = rr(-area, area); rp.set([x, y, z, x + 0.05, y + 0.45, z], i * 6); }
+    const rg = new THREE.BufferGeometry(); rg.setAttribute('position', new THREE.BufferAttribute(rp, 3));
+    const rainM = new THREE.LineSegments(rg, new THREE.LineBasicMaterial({ color: 0xbfd2e4, transparent: true, opacity: 0.45, depthWrite: false })); rainM.frustumCulled = false; L.group.add(rainM);
+    let flash = 0, nextF = rr(6, 12), thunder = -1, base = null;
+    b.update((dt, t, fl) => {
+      const c = camera.position, p = rg.attributes.position.array;
+      for (let i = 0; i < RN; i++) { const o = i * 6; let y = p[o + 1] - dt * 20; let x = p[o] - dt * 1.2;
+        if (y < 0) { y += 22; x = c.x + rr(-area, area); p[o + 2] = c.z + rr(-area, area); }
+        if (x < c.x - area) x += area * 2; else if (x > c.x + area) x -= area * 2;
+        if (p[o + 2] < c.z - area) p[o + 2] += area * 2; else if (p[o + 2] > c.z + area) p[o + 2] -= area * 2;
+        p[o] = x; p[o + 1] = y; p[o + 3] = x + 0.06; p[o + 4] = y + 0.5; p[o + 5] = p[o + 2]; }
+      rg.attributes.position.needsUpdate = true;
+      for (const R2 of ripples) { R2.t += dt * 0.9; if (R2.t > 1) { R2.t = 0; const a = R() * TAU, d = R() * R2.r * 0.8; R2.q.position.set(R2.x + Math.cos(a) * d, 0.02, R2.z + Math.sin(a) * d * 0.7); } R2.q.scale.setScalar(1 + R2.t * 4); R2.q.material.opacity = 0.5 * (1 - R2.t); }
+      // soggy paper outside the shelters
+      if (fl.state === 'fly' && !L.passive && !isDry(fl.pos)) fl.wet = Math.min(0.75, (fl.wet || 0) + dt * 0.82);
+      // lightning + thunder
+      if (Game.level !== L) return;
+      nextF -= dt;
+      if (nextF <= 0) { nextF = rr(9, 17); flash = 0.35; thunder = rr(0.6, 1.4); base = { h: hemi.intensity, s: sun.intensity }; stat('lightning'); }
+      if (flash > 0 && base) { flash -= dt; const k = (flash > 0.25 || (flash < 0.15 && flash > 0.08)) ? 2.6 : 1; hemi.intensity = base.h * k; sun.intensity = base.s * k; if (flash <= 0) { hemi.intensity = base.h; sun.intensity = base.s; } }
+      if (thunder > 0 && (thunder -= dt) <= 0) { Audio.noiseHit(0.9, 90, 1.6, 0.6); Audio.noiseHit(0.5, 160, 0.9, 0.7, 0.2); if (Game.cam) Game.cam.shake = 0.5;
+        for (const p2 of L.people) if (p2 instanceof Person && p2.state === 'idle' && R() < 0.35) p2.say(pick(['Eek!', 'THUNDER!', 'Whoa!', 'One… two… three…', 'I’m not scared.']), 1.4); }
+    });
+    // umbrellas for everyone out in the rain; Mia is under the oak
+    const ucol = ['#e94e3c', '#3d8ac9', '#f2c14e', '#4aa36a', '#e07a9a', '#2b2118'];
+    let ui = 0; for (const p of L.people) if (p instanceof Person && p.kind !== 'mia' && p.kind !== 'bully' && !p.o.hose && Math.hypot(p.root.position.x - 11.5, p.root.position.z - 32) > 6) umbrellaFor(p, ucol[ui++ % ucol.length]);
+    for (const p of L.people) if (p.o && p.o.hose) p.o.lines = { point: ['Watering? In THIS?', 'Even the rain needs help!'], shush: ['Off my soggy lawn!'], duck: ['Whoa!'] };
+    flock(L, b, -20, 20, { duck: true, n: 5, r: 1.6 }); flock(L, b, 2, 4, { duck: true, n: 3, r: 1.0 }); flock(L, b, 20, 30, { duck: true, n: 4, r: 1.4 });
+    L.chatter = ['It’s POURING!', 'My socks are wet', 'Puddle jump!', 'Where’s my umbrella?', 'Indoor break, please!'].concat(LEVEL_CHAT.rain, LEVEL_CHAT.rain);
+    const TX = 7.0, TZ = 30.5;
+    pw(L, 'tailwind', 0, 6, -18); pw(L, 'shield', SX, 1.4, SZ - 2.5); pw(L, 'magnet', 3, 4, 18);
+    L.spawn = { pos: v3(7.5, 7.0, -23.0), yaw: 0, pitch: -0.05 };
+    L.stages = [
+      { kind: 'rings', text: 'Across the yard, through the storm', items: [{ p: v3(7.5, 5.6, -16), n: N(0, -0.1, 1), r: 0.8 }, { p: v3(2.0, 3.4, -9.5), n: N(-0.6, 0, 0.8), r: 0.8 }, { p: v3(SX, 1.4, SZ), n: N(0, 0, 1), r: 0.7 },
+        { p: v3(-6, 4.5, 20), n: N(0.45, 0, 1), r: 0.85 }, { p: v3(4, 3.5, 26), n: N(1, 0, 0.4), r: 0.8 }] },
+      { kind: 'pages', text: 'Grab the 3 soggy worksheets', items: [{ p: v3(-8, 2.8, 12) }, { p: v3(21.6, 4.3, 7) }, { p: v3(25.6, 3.4, 40) }] },
+      { kind: 'land', text: 'Land on Mia’s table under the oak', label: 'MIA', pad: box3(TX - 1.1, 0.76, TZ - 0.5, TX + 1.1, 1.1, TZ + 0.5), hint: 'The oak keeps you dry. Brake with {BRAKE} and set it down.' },
+    ];
+    L.stars = [v3(SX, 2.95, SZ), v3(-20, 0.35, 20), v3(-22, 2.45, 8)];
+    L.hints = [{ box: box3(5.5, 0, 26, 17.5, 9, 38), text: 'The old oak keeps the rain off.' }, { box: box3(SX - 2, 0, SZ - 1.5, SX + 2, 2.6, SZ + 1.5), text: 'Shelters dry the paper out. Rain makes it soggy and slow.' }];
+    L.startHint = 'Rain makes the paper soggy — dry off under shelters!';
+    L.dustN = 120; L.dustOpts = { vy: -1.2, wind: v3(0.8, 0, 0.2), opacity: 0.5 };
+  },
+};
+LEVELS.push(RAIN_LEVEL);
+CAST_IN.rain = []; TEACH_IN.rain = []; // the yard build hands out its own cast and Mr. Moss
+QUESTS.rain = { from: 'ana', to: 'leo', ask: 'Get my umbrella to Leo!', thanks: 'Dry at last! Thanks!' };
+LEVEL_CHAT.rain = ['My shoes are swimming', 'The ducks love this', 'Is that thunder?', 'Mia’s under the oak', 'Puddle! PUDDLE!', 'My worksheet is soup', 'The bus is late', 'Rain day = film day?', 'I can’t feel my socks', 'Umbrella fight!'];
+CONVOS_BY.rain = [['Share your umbrella?', 'It’s tiny.', 'I’m tiny.'], ['Is it a storm?', 'It’s Tuesday.', 'Same thing.'], ['Mia forgot her umbrella.', 'Sam should lend her his.', 'He doesn’t have one either.']];
+THEMES.rain = { bpm: 66, chords: [[57, 60, 64, 67], [53, 57, 60, 64], [55, 58, 62, 65], [52, 55, 59, 64]], lead: 'sine', leadV: 0.035 };
+SPECIALS.rain = { lines: ['A paper plane? In THIS?', 'Dry off at the bus stop!', 'A star in the rain!', 'It’s soggy! Poor thing!', 'Thanks, Sam. You’re soaked.', 'Power-up! Waterproof?', 'Nearly hit the shelter!', 'Skimming the puddles!', 'New fold — waterproof?', 'Splashed me!', 'Second star — rainbow?', 'All three! Rain or shine!', 'U-turn in the wind!', 'Splat. In a puddle. Again.', 'Faster than the rain!', 'It stopped mid-storm!', 'A minute in the storm!', 'The oak! She’s waiting!', 'Combo in the storm!', 'No gust left — ride the wind!'], who: [0, 0, 0, 0, 'mia', 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 'mia', 0, 0] };
+CUTS.rain = [['moss', 'Rain, rain, rain. My poor flowerbeds.'], ['nina', 'Is it always this wet here?'], ['zoe', 'Mia forgot her umbrella. She’s under the oak.'], ['mia', '…typical.']];
+
+// ═════════ v7: the paper storm — confiscated planes swirl round the hall in phase 4 ═════════
+{
+  const BD = LEVELS.find((D) => D.id === 'boss');
+  const ob = BD.build;
+  BD.build = function (L, b) {
+    ob.call(this, L, b);
+    const planes = [];
+    for (let i = 0; i < 12; i++) { const m = new THREE.Mesh(planeGeometry(pick(['dart', 'glider', 'swallow'])), toon(pick(['#f4f1ea', '#f6e7a8', '#cfe3f2', '#f2c8c8']), { side: THREE.DoubleSide })); m.scale.setScalar(2.2); m.visible = false; m.castShadow = true; L.group.add(m); planes.push({ m, ph: i / 12 * TAU, r: 5 + (i % 3) * 1.8, y: 1.4 + (i % 4) * 1.1, sp: 0.55 + (i % 2) * 0.25 }); }
+    let cool = 0, on = 0;
+    b.update((dt, t, fl) => {
+      const storm = L.stage === 3; on = damp(on, storm ? 1 : 0, 2, dt); cool -= dt;
+      for (const P of planes) {
+        P.m.visible = on > 0.02;
+        if (!P.m.visible) continue;
+        const a = P.ph + t * P.sp * (P.r < 6 ? 1 : -1), r = P.r * on;
+        P.m.position.set(Math.cos(a) * r, 1.0 + P.y * on + Math.sin(t * 2 + P.ph) * 0.3, -1.5 + Math.sin(a) * r * 0.75);
+        P.m.rotation.set(0, -a + (P.r < 6 ? 0 : Math.PI), Math.sin(t * 3 + P.ph) * 0.4);
+        if (storm && cool <= 0 && fl.state === 'fly' && !L.passive && P.m.getWorldPosition(_a2).distanceTo(fl.pos) < 0.5 * (L.S || 1)) {
+          cool = 1.2; if (fl.knock(new V3().subVectors(fl.pos, _a2).normalize(), 6, 'Paper storm!', L.D, L.fxCb, 0.6)) L.emit({ type: 'swat', p: fl.pos.clone(), label: 'Paper storm!' });
+        }
+      }
+    });
+  };
+  const _ev = Game.onEvent;
+  Game.onEvent = function (e) { if (e.type === 'complete' && this.level && this.level.def && this.level.def.id === 'boss' && !this.customDef) stat('storms'); return _ev.call(this, e); };
+}
+CUTS.boss = CUTS.boss.concat([['zoe', '…and he’s got a whole DRAWER of them.']]);
+ACHS.push(
+  { id: 'party', n: 'Best guest', d: 'Finish Mia’s Party', chk: () => !!Store.data.best.party, ic: '🎈' },
+  { id: 'home', n: 'Home delivery', d: 'Finish Sam’s House', chk: () => !!Store.data.best.home, ic: '🏠' },
+  { id: 'rain', n: 'Soaked', d: 'Finish Rainy Day', chk: () => !!Store.data.best.rain, ic: '☔' },
+  { id: 'storm', n: 'Eye of the storm', d: 'Beat Grimsby’s paper storm', k: 'storms', v: 1, ic: '🌪' },
+  { id: 'pinata', n: 'Sweet tooth', d: 'Burst the piñata', k: 'pinata', v: 1, ic: '🪅' },
+);
+
+
+// ═════════ v7: DIALOGUE CHOICES — Sam answers at the end of each cutscene ═════════
+// each option: Sam’s line, who answers, their reply, opinion changes, a diary line, and a callback said when the level starts
+const CHOICES = {
+  class: { who: 'jake', q: '“Love note?” Jake grins. What does Sam say?', opts: [
+    { t: 'It’s homework. Obviously.', who: 'jake', r: 'Homework with a heart on it?', rel: {}, d: 'Told Jake it was homework. He didn’t buy it.', cb: ['jake', 'Homework. Sure.'] },
+    { t: 'Yeah. So what?', who: 'jake', r: 'Whoa. Respect, Sam.', rel: { jake: 1 }, d: 'Told Jake the truth. He actually said “respect”.', cb: ['jake', 'Go, Romeo!'] },
+    { t: 'Shh — Ms. Hart’s looking!', who: 'hart', r: 'I AM looking, Sam.', rel: {}, d: 'Ms. Hart caught me whispering. Page 42 forever.', cb: ['hart', 'Eyes on the board, Sam.'] }] },
+  corridor: { who: 'leo', q: 'Leo cracks his knuckles. “Bet I catch it.”', opts: [
+    { t: 'You can try.', who: 'leo', r: 'Oh, I’ll try.', rel: { leo: -1 }, d: 'Leo says he’ll catch my plane. Let him try.', cb: ['leo', 'Here it comes…'] },
+    { t: 'Catch it and it’s yours.', who: 'leo', r: 'Deal!', rel: { leo: 1 }, d: 'Made a deal with Leo. Probably a mistake.', cb: ['leo', 'A deal’s a deal!'] },
+    { t: 'Please don’t.', who: 'leo', r: 'Fine. Just this once.', rel: { leo: 1 }, d: 'Asked Leo nicely. He let it go. Weird.', cb: ['leo', 'Not catching. Promise.'] }] },
+  library: { who: 'ollie', q: '(Ollie whispers) “…can I see it fly?”', opts: [
+    { t: '(whisper) Watch this.', who: 'ollie', r: '(whisper) …wow.', rel: { ollie: 1 }, d: 'Ollie watched it fly. I think he’s a fan now.', cb: ['ollie', '(whisper) go go go'] },
+    { t: '(whisper) Not now, Ollie.', who: 'ollie', r: '(whisper) …okay.', rel: { ollie: -1 }, d: 'Was a bit mean to Ollie. Should say sorry.', cb: ['ollie', '(whisper) …hmph.'] },
+    { t: 'IT’S FOR MIA!', who: 'okafor', r: 'SHHHHH!', rel: {}, d: 'Said it way too loud in the library. Mrs. Okafor nearly exploded.', cb: ['okafor', 'Quietly, Sam. QUIETLY.'] }] },
+  canteen: { who: 'tom', q: 'Tom wakes up. “…is that a pancake?”', opts: [
+    { t: 'It’s a plane, Tom.', who: 'tom', r: '…a pancake plane?', rel: {}, d: 'Tom thinks my plane is a pancake. Close enough.', cb: ['tom', 'Pancake plane!'] },
+    { t: 'Here, have my pancake.', who: 'tom', r: 'Best. Friday. Ever.', rel: { tom: 1 }, d: 'Gave Tom my pancake. He’s my best friend now.', cb: ['tom', 'Thanks for the pancake!'] },
+    { t: 'Food fight!', who: 'bell', r: 'NO.', rel: {}, d: 'Suggested a food fight. Mrs. Bell said NO. Loudly.', cb: ['bell', 'I’m watching you, Sam.'] }] },
+  lab: { who: 'ana', q: 'Ana holds up her sketchbook. “Can I draw it?”', opts: [
+    { t: 'Draw it flying!', who: 'ana', r: 'Speed lines! Yes!', rel: { ana: 1 }, d: 'Ana is drawing my plane. With speed lines.', cb: ['ana', 'Hold still… no, fly!'] },
+    { t: 'Draw Mia instead.', who: 'ana', r: 'Ooh. Scandalous.', rel: { ana: 1 }, d: 'Asked Ana to draw Mia. She winked. Why did she wink?', cb: ['ana', 'Scandalous!'] },
+    { t: 'Nothing’s exploding, right?', who: 'petrenko', r: '…probably.', rel: {}, d: 'Asked Mr. Petrenko if anything would explode. He said probably.', cb: ['petrenko', 'Goggles, Sam.'] }] },
+  music: { who: 'zoe', q: 'Zoe: “Mia plays drums here. Did you know?”', opts: [
+    { t: 'She does? That’s so cool.', who: 'zoe', r: 'She’s amazing. Tell her.', rel: { zoe: 1 }, d: 'Mia plays drums! Zoe says I should tell her she’s amazing.', cb: ['zoe', 'Tell her!'] },
+    { t: 'I knew that.', who: 'zoe', r: 'Stalker.', rel: { zoe: -1 }, d: 'Told Zoe I knew. She called me a stalker. Fair.', cb: ['zoe', 'Stalker…'] },
+    { t: 'Teach me the drums?', who: 'lieu', r: 'Tempo first, Sam!', rel: {}, d: 'Asked to learn drums. Mr. Lieu said tempo first.', cb: ['lieu', 'One, two, Sam!'] }] },
+  gym: { who: 'leo', q: '“Catch it, Leo.” Leo grins at Sam.', opts: [
+    { t: 'Go on then, Leo.', who: 'leo', r: 'Watch me!', rel: { leo: -1 }, d: 'Dared Leo to catch it in the gym. Big mistake.', cb: ['leo', 'It’s MINE!'] },
+    { t: 'Pass, Leo! Team Sam!', who: 'leo', r: 'Team Sam? …okay!', rel: { leo: 1 }, d: 'Leo joined Team Sam. We have a team now.', cb: ['leo', 'Team Sam!'] },
+    { t: 'Coach, can I do laps instead?', who: 'brandt', r: 'TEN LAPS!', rel: {}, d: 'Volunteered for laps. Why did I do that.', cb: ['brandt', 'Hustle, Sam!'] }] },
+  boss: { who: 'grimsby', q: 'Grimsby: “Paper. Stays. On. DESKS.”', opts: [
+    { t: 'Yes, sir.', who: 'grimsby', r: 'Good. …wait. What’s that?', rel: {}, d: 'Said “yes, sir” to Grimsby. Then flew a plane round his hall.', cb: ['grimsby', 'Desks, Sam. DESKS.'] },
+    { t: 'Give back my notes!', who: 'grimsby', r: 'NEVER!', rel: { zoe: 1 }, d: 'Stood up to Grimsby. Zoe cheered. My legs were shaking.', cb: ['zoe', 'Go get them, Sam!'] },
+    { t: 'Is that a duck on your tie?', who: 'grimsby', r: '…it’s an OWL.', rel: { jake: 1 }, d: 'Asked Grimsby about the duck on his tie. It’s an owl. Jake cried laughing.', cb: ['jake', 'An OWL! Ha!'] }] },
+  yard: { who: 'ana', q: 'Ana: “She’s been waiting all afternoon.”', opts: [
+    { t: 'I know. I’m nervous.', who: 'ana', r: 'Nervous is good. Go.', rel: { ana: 1 }, d: 'Told Ana I was nervous. She said nervous is good.', cb: ['ana', 'Go, Sam!'] },
+    { t: 'Did she say anything?', who: 'ana', r: 'She said “finally”.', rel: {}, d: 'Mia said “finally”. FINALLY. What does that mean?!', cb: ['ana', 'Finally!'] },
+    { t: 'What if she says no?', who: 'mia', r: '(far away) …she won’t.', rel: {}, d: 'Asked what if she says no. I think Mia heard. Oh no.', cb: ['mia', 'Come on, Sam…'] }] },
+  art: { who: 'ollie', q: 'Ollie: “I’ll… make it a whale?”', opts: [
+    { t: 'A whale? Brilliant.', who: 'ollie', r: '…really? Okay!', rel: { ollie: 1 }, d: 'Ollie wants to turn my plane into a whale. I said yes.', cb: ['ollie', 'Whale plane!'] },
+    { t: 'Make it red. Mia likes red.', who: 'ana', r: 'Ooh, ROMANCE red.', rel: { ana: 1 }, d: 'Mia likes red. Ana made a big deal about it.', cb: ['ana', 'Romance red!'] },
+    { t: 'Keep it plain.', who: 'rivera', r: 'There’s no such thing as plain!', rel: {}, d: 'Ms. Rivera says there’s no such thing as plain. She’s probably right.', cb: ['rivera', 'More colour!'] }] },
+  roof: { who: 'zoe', q: 'Zoe: “Mia brought two cups.”', opts: [
+    { t: 'Two? For… me?', who: 'zoe', r: 'No, for the pigeons. YES for you.', rel: { zoe: 1 }, d: 'Mia brought me cocoa. ME.', cb: ['zoe', 'Two cups, Sam!'] },
+    { t: 'I don’t even like cocoa.', who: 'zoe', r: 'You do tonight.', rel: {}, d: 'I don’t even like cocoa. I do now.', cb: ['zoe', 'You like cocoa now.'] },
+    { t: 'Is that Orion?', who: 'priya', r: 'Fact: yes.', rel: { priya: 1 }, d: 'Priya showed me Orion. Mia was watching the plane, not the stars.', cb: ['priya', 'Orion. Fact.'] }] },
+  bus: { who: 'jake', q: 'Jake: “Stuck at the front again, Sam?”', opts: [
+    { t: 'Not for long.', who: 'jake', r: 'Ooh, confident!', rel: { jake: 1 }, d: 'Told Jake I wouldn’t be stuck for long. I was right.', cb: ['jake', 'Go, go, go!'] },
+    { t: 'Swap seats with me?', who: 'jake', r: 'For your crisps.', rel: {}, d: 'Jake wanted my crisps for his seat. Flew the note instead.', cb: ['jake', 'Crisps, Sam!'] },
+    { t: 'Driver, can I move?', who: 'gus', r: 'SIT DOWN, please.', rel: {}, d: 'Asked Gus if I could move. He said sit down. The plane didn’t.', cb: ['gus', 'Seatbelts!'] }] },
+  town: { who: 'zoe', q: 'Zoe: “Her window’s open. Just saying.”', opts: [
+    { t: 'Thanks, Zoe.', who: 'zoe', r: 'Don’t be late. Later.', rel: { zoe: 1 }, d: 'Zoe told me Mia’s window was open. Zoe is the best.', cb: ['zoe', 'Number 14!'] },
+    { t: 'I’m not late!', who: 'leo', r: 'You’re SO late.', rel: {}, d: 'I was late. Leo was right. Don’t tell him.', cb: ['leo', 'SO late.'] },
+    { t: 'What do I write?', who: 'rosa', r: 'Something quotable.', rel: { rosa: 1 }, d: 'Rosa wants something quotable. I wrote “happy birthday”. Classic.', cb: ['rosa', 'Quote me!'] }] },
+  party: { who: 'jake', q: 'Jake: “Sam’s card is coming. I can feel it.”', opts: [
+    { t: 'It’s just a card.', who: 'zoe', r: 'It’s NOT just a card.', rel: { zoe: 1 }, d: 'Said it was just a card. Zoe said it’s not. She’s right.', cb: ['zoe', 'Not JUST a card!'] },
+    { t: 'Save me some cake!', who: 'bell', r: 'One slice each!', rel: {}, d: 'Asked Mrs. Bell for cake. One slice each. I had two.', cb: ['bell', 'One slice!'] },
+    { t: 'Happy birthday, Mia!', who: 'mia', r: 'You came!', rel: {}, d: 'Said happy birthday out loud. In front of everyone. She smiled.', cb: ['mia', 'Thank you, Sam!'] }] },
+  home: { who: 'lily', q: 'Lily: “Can I fly your plane? Pleeease?”', opts: [
+    { t: 'Next time. Promise.', who: 'lily', r: 'PROMISE promise?', rel: {}, d: 'Promised Lily she can fly the next one. Promise promise.', cb: ['lily', 'Promise promise!'] },
+    { t: 'It’s for Mia.', who: 'lily', r: 'SAM LOVES MIA!', rel: {}, d: 'Told Lily it was for Mia. The whole house knows now.', cb: ['lily', 'Sam loves Mia!'] },
+    { t: 'Ask Dad.', who: 'dad', r: 'zzz… yes… whatever…', rel: {}, d: 'Dad said yes in his sleep. Lily is in charge now.', cb: ['dad', 'zzz… go long…'] }] },
+  rain: { who: 'nina', q: 'Nina: “Is it always this wet here?”', opts: [
+    { t: 'Only on Tuesdays.', who: 'nina', r: 'Good to know!', rel: { nina: 1 }, d: 'Told Nina it only rains on Tuesdays. She believed me.', cb: ['nina', 'Only Tuesdays!'] },
+    { t: 'You get used to it.', who: 'nina', r: 'My socks don’t.', rel: {}, d: 'Nina’s socks are not used to it. Nobody’s are.', cb: ['nina', 'My socks…'] },
+    { t: 'Got a spare umbrella?', who: 'zoe', r: 'Mia forgot hers. Go!', rel: { zoe: 1 }, d: 'No umbrellas anywhere. Flew the note to Mia anyway.', cb: ['zoe', 'Go, Sam!'] }] },
+};
+// ═════════ v7: SAM’S DIARY — a page for every level you finish ═════════
+const DIARY = {
+  class: 'Friday. Wrote the note. Folded it four times.', corridor: 'The corridor is much longer when you’re a plane.', library: 'Library: the quietest crash of my life.',
+  canteen: 'Pancake Friday. My plane smells like syrup now.', lab: 'The lab. Nothing exploded. Probably.', music: 'My plane hit the cymbal. In tempo, though.',
+  gym: 'Gym. The ropes are higher than they look.', boss: 'Grimsby. The net. The drawer. The BELL.', yard: 'She read it twice. TWICE.',
+  art: 'Art club. My plane is a masterpiece now.', roof: 'The roof at night. Meteors. Cocoa. Mia.', bus: 'Back seat. She moved her bag for me.',
+  town: 'Late for the party. Made it through her window.', party: 'Best party ever. Ate too much cake.', home: 'Two planes over Elm Street. Mum’s soup went cold.', rain: 'Soaked to the socks. Worth it.',
+};
+const CH = () => Store.data.choices || (Store.data.choices = {});
+const DI = () => Store.data.diary || (Store.data.diary = {});
+const diaryText = (id) => { const c = CHOICES[id], k = CH()[id]; return (DIARY[id] || '') + (c && k != null && c.opts[k] ? ' ' + c.opts[k].d : ''); };
+{
+  const st = document.createElement('style');
+  st.textContent = `.chs { display: flex; flex-direction: column; gap: 8px; margin-top: 8px; }
+.chs .btn { text-align: left; font-family: var(--f-hand); font-size: clamp(18px, 2.6vw, 23px); line-height: 1.15; padding: 8px 14px; }
+.cutbar.ask { align-items: stretch; } .cutbar.ask .cutin { min-height: 0; }
+.said { font-family: var(--f-hand); font-size: 19px; color: #22305a; margin: -8px 0 12px; } .said i { font-family: var(--f-ui); font-style: normal; font-size: 12px; color: var(--ink-2); margin-left: 6px; }
+.diary { font-family: var(--f-hand); font-size: 20px; line-height: 32px; color: #22305a; } .diary b { font-family: var(--f-ui); font-size: 13px; color: var(--margin); letter-spacing: 0.05em; text-transform: uppercase; display: block; line-height: 32px; }
+.diary i { display: block; font-family: var(--f-ui); font-style: normal; font-size: 13px; line-height: 32px; color: var(--ink-2); }
+.cutbar.ask > .btn { align-self: flex-end; }
+.res .dpage { margin-top: 8px; font-family: var(--f-hand); font-size: 19px; line-height: 25px; color: #22305a; border-top: 1px dashed var(--line); padding-top: 6px; } .res .dpage b { font-family: var(--f-ui); font-size: 12px; color: var(--margin); text-transform: uppercase; letter-spacing: 0.05em; margin-right: 6px; }
+@media (max-width: 520px) { .chs .btn { font-size: 18px; padding: 7px 10px; } .cutbar { flex-direction: column; align-items: stretch; } }`;
+  document.head.appendChild(st);
+  const _ct = Game.cutTick, _story = Game.story, _begin = Game.begin, _res = Game.results, _nb = Game.notebook;
+  Object.assign(Game, {
+    cutTick(dt) {
+      const C = this.cut; if (!C) return;
+      const id = LEVELS[C.i].id, Q = CHOICES[id];
+      if (C.wait) { C.t += dt;
+        while (C.seq && C.seq.length && C.t >= C.seq[0].at) { const s = C.seq.shift(); const w = $('cutWho'), x = $('cutTxt'); if (w) w.textContent = spkName(s.who); if (x) x.textContent = s.txt; const sp = findSpeaker(this.level, s.who); if (sp) { sp.say(s.txt, 2.6, '#ffffff'); sp.act = { kind: 'gesture', t: 0, dur: 1.4 }; } }
+        if (C.after != null && C.t >= C.after) { C.after = null; this.endCut(); }
+        return; }
+      if (Q && C.k >= C.lines.length - 1 && C.t >= C.next && !C.asked) { C.asked = true; C.wait = true; this.askChoice(C, Q); return; }
+      return _ct.call(this, dt);
+    },
+    askChoice(C, Q) {
+      const L = LEVELS[C.i], prev = CH()[L.id];
+      UI.show(`<div class="cutbar ask"><div class="cutin"><b>${spkName(Q.who)}</b><span>${Q.q}</span><div class="chs">${Q.opts.map((o, i) => `<button class="btn small" data-nav data-act="pickChoice" data-i="${i}" ${i === (prev ?? 0) ? 'data-def="1"' : ''}>${i + 1}. “${o.t}”${prev === i ? ' ✓' : ''}</button>`).join('')}</div></div><button class="btn small" data-nav data-act="skipCut">Skip ▸▸</button></div><div class="cuttitle">${L.bonus ? 'Bonus' : C.i + 1}. ${L.name}<small>${L.place}</small></div>`, 'cutscr');
+      UI.back = () => this.acts.skipCut();
+    },
+    pickChoice(i) {
+      const C = this.cut; if (!C) return; const L = LEVELS[C.i], Q = CHOICES[L.id], o = Q && Q.opts[i]; if (!o) return;
+      CH()[L.id] = i; stat('choices');
+      for (const [k, d] of Object.entries(o.rel || {})) { REL()[k] = clamp(relOf(k) + d, -5, 6); }
+      if (this.level) for (const p of this.level.people) if (p.castId && o.rel && o.rel[p.castId] != null) Cast.mood(p);
+      checkAch(); Store.save(); Audio.page();
+      UI.show(`<div class="cutbar"><div class="cutin"><b id="cutWho">Sam</b><span id="cutTxt">“${o.t}”</span></div><button class="btn small" data-nav data-act="skipCut" data-def="1">Skip ▸▸</button></div><div class="cuttitle">${L.bonus ? 'Bonus' : C.i + 1}. ${L.name}<small>${L.place}</small></div>`, 'cutscr');
+      UI.back = () => this.acts.skipCut();
+      C.seq = [{ at: C.t + 1.7, who: o.who, txt: o.r }]; C.after = C.t + 1.7 + 1.5 + o.r.length * 0.055;
+    },
+    story(i, noCut) {
+      const r = _story.call(this, i, noCut);
+      const L = LEVELS[i], Q = CHOICES[L.id], k = CH()[L.id];
+      if (this.mode !== 'cut' && Q && k != null && Q.opts[k]) { const pl = document.querySelector('#scr .story .pl'); if (pl && !document.querySelector('#scr .said')) pl.insertAdjacentHTML('afterend', `<div class="said">“${Q.opts[k].t}”<i>— Sam, earlier</i></div>`); }
+      return r;
+    },
+    begin() {
+      const r = _begin.call(this);
+      const L = LEVELS[this.li]; const Q = L && CHOICES[L.id], k = L && CH()[L.id];
+      if (Q && k != null && Q.opts[k] && Q.opts[k].cb && !this.customDef && !this.practice && !this.daily && !this.marathon && !this.mp) {
+        const [who, line] = Q.opts[k].cb, LV = this.level;
+        setTimeout(() => { if (this.level !== LV || this.mode !== 'play') return; const sp = findSpeaker(LV, who); if (sp) { sp.say(line, 2.8, '#e8f4ff'); sp.act = { kind: 'gesture', t: 0, dur: 1.4 }; } }, 2600);
+      }
+      return r;
+    },
+    results() {
+      const r = _res.call(this);
+      const L = LEVELS[this.li];
+      if (L && DIARY[L.id] && !this.customDef && !this.practice && !this.daily && !this.mp) {
+        const fresh = !DI()[L.id]; DI()[L.id] = 1; checkAch(); Store.save();
+        const note = document.querySelector('#scr .note'); if (note) note.insertAdjacentHTML('afterend', `<div class="dpage"><b>📓 Sam’s diary${fresh ? ' · new page' : ''}</b>${diaryText(L.id)}</div>`);
+      }
+      return r;
+    },
+    notebook() {
+      _nb.call(this);
+      const got = LEVELS.filter((L) => DIARY[L.id] && DI()[L.id]).length;
+      const blank = LEVELS.filter((L) => DIARY[L.id] && !DI()[L.id]).map((L) => L.name);
+      const rows = LEVELS.filter((L) => DIARY[L.id] && DI()[L.id]).map((L) => `<b>${L.name} · ${L.place}</b>${diaryText(L.id)}`).join('') + (blank.length ? `<i>Blank pages: ${blank.join(' · ')}</i>` : '');
+      const nb = document.querySelector('#scr .nb');
+      if (nb) nb.insertAdjacentHTML('afterend', `<div class="paper ovhs"><div class="ovt">Sam’s diary <span>${got} / ${Object.keys(DIARY).length} pages</span></div><div class="diary">${rows}</div></div>`);
+    },
+  });
+  Object.assign(Game.acts, { pickChoice: (el) => Game.pickChoice(+el.dataset.i) });
+}
+ACHS.push(
+  { id: 'choices', n: 'Silver tongue', d: 'Answer in 10 different cutscenes', chk: () => Object.keys(Store.data.choices || {}).length >= 10, ic: '💭' },
+  { id: 'diary10', n: 'Dear diary', d: 'Fill 10 pages of Sam’s diary', chk: () => Object.keys(Store.data.diary || {}).length >= 10, ic: '📓' },
+  { id: 'diaryAll', n: 'The whole story', d: 'Fill every page of Sam’s diary', chk: () => Object.keys(DIARY).every((k) => (Store.data.diary || {})[k]), ic: '📖' },
+);
+
+
+// ═════════ v7: PETS IN THE OLD ROOMS + PAR TUNING ═════════
+{
+  const D = (id) => LEVELS.find((q) => q.id === id);
+  const wrap = (id, fn) => { const d = D(id); if (!d) return; const ob = d.build; d.build = function (L, b) { ob.call(this, L, b); fn(L, b); }; };
+  // the class hamster lives on a cabinet in the corner of 5B
+  wrap('class', (L, b) => { b.aabb(7.9, 0, 5.9, 8.8, 0.9, 6.8, M.woodDark); new Hamster(L, b, 8.35, 0.9, 6.35, -Math.PI / 2); sign(b, 8.35, 1.55, 6.83, Math.PI, 'NIBBLES', 0.6, 0.16, '#e8b23a', '#2b2118'); });
+  // pigeons peck around the sunny schoolyard (the rainy day gets ducks instead)
+  wrap('yard', (L, b) => { if (L.def && L.def.id === 'rain') return; flock(L, b, -8, -14, { n: 7, r: 1.8 }); flock(L, b, 16, 12, { n: 5, r: 1.4 }); });
+}
+// par times, evened out by route length (tools/par.js): generous rooms tightened, long outdoor routes loosened
+for (const [id, g, s2] of [['library', 48, 78], ['bus', 40, 66], ['boss', 90, 140], ['town', 110, 175], ['roof', 95, 150], ['home', 55, 90], ['rain', 95, 150]]) { const d = LEVELS.find((q) => q.id === id); if (d) { d.gold = g; d.silver = s2; } }
 
 boot();
 

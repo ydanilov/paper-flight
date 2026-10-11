@@ -1,0 +1,5 @@
+tools/node_modules/
+tools/package-lock.json
+tools/test.html
+tools/*.png
+src.backup.html
