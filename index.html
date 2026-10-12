@@ -7960,6 +7960,7 @@ const SECRETS = {
   home: { v: [6.98, 4.4, -3, -Math.PI / 2], n: 'The attic', theme: 'attic', note: 'Grandpa’s plane, folded in 1962. It still flies.' },
 };
 const SEC = () => Store.data.secrets || (Store.data.secrets = {});
+let SEC_BUILD = null;
 {
   const RY = 40; // the hidden room floats this high above the level (local units)
   const build = (L, b, id, D) => {
@@ -8005,6 +8006,7 @@ const SEC = () => Store.data.secrets || (Store.data.secrets = {});
       if (p.y > (RY + 1.6) * S && p.z < (Z0 + 0.45) * S && Math.abs(p.x) < 0.6 * S) { cool = 1; fl.reset(exitBack.clone().multiplyScalar(S), Math.atan2(fwd.x, fwd.z), 0); Game.cam && Game.cam.snap(fl); Audio.noiseHit(0.5, 400, 0.3, 0.6); }
     });
   };
+  SEC_BUILD = build;
   for (const [id, D] of Object.entries(SECRETS)) { const d = LEVELS.find((q) => q.id === id); if (!d) continue; const ob = d.build; d.build = function (L, b) { ob.call(this, L, b); if (L.def && L.def.id !== id) return; build(L, b, id, D); }; }
   ACHS.push({ id: 'secret1', n: 'Through the vent', d: 'Find a secret room', k: 'secrets', v: 1, ic: '🗝' }, { id: 'secretAll', n: 'Master of secrets', d: 'Find every secret room', chk: () => Object.keys(SECRETS).every((k) => SEC()[k]), ic: '🏆' });
   const _nb = Game.notebook;
@@ -8239,6 +8241,216 @@ const Class = {
 ACHS.push({ id: 'classAct', n: 'Class act', d: 'Watch 25 moments of class life', k: 'classMoments', v: 25, ic: '🎭' });
 JOKES.max = { n: 'Max’s soft side', parts: ['…what? I’m not saying anything.', 'Fine. I have a hamster.', 'His name is Sir Fluffington.', 'He likes paper planes too.', 'Don’t tell anyone.', 'I mean it.', '…he did a flip yesterday.', 'Okay, your plane is pretty cool.'] };
 JOKES.emma = { n: 'Emma’s gold stars', parts: ['Gold star number 100!', 'Ms. Hart says I’m “a lot”.', 'I made her a card.', 'I made Grimsby a card too.', 'He didn’t say thank you.', 'I’m making him another one.', 'With glitter.', 'Gold star number 150!'] };
+
+
+// ═════════ v9: LOOKS — hairstyles, outfits by role, teachers’ outfits, expressions & blushing ═════════
+const LOOK = {};
+{
+  const mk = (geo, mat, sx, sy, sz, px, py, pz, par) => { const m = new THREE.Mesh(geo, mat); m.scale.set(sx, sy, sz); m.position.set(px, py, pz); m.castShadow = true; par.add(m); return m; };
+  const RB = () => PEOPLE.rbox || PG.box;
+  LOOK.tex = (key, draw) => TEX['lk' + key] || (TEX['lk' + key] = canvasTex(256, 256, draw));
+  const stripes = (a, c) => LOOK.tex('st' + a + c, (g, w, h) => { g.fillStyle = a; g.fillRect(0, 0, w, h); g.fillStyle = c; for (let y = 0; y < h; y += 40) g.fillRect(0, y, w, 20); });
+  const dots = (a, c) => LOOK.tex('dt' + a + c, (g, w, h) => { g.fillStyle = a; g.fillRect(0, 0, w, h); g.fillStyle = c; for (let y = 16; y < h; y += 48) for (let x = (y / 48 % 2) * 24 + 12; x < w; x += 48) { g.beginPath(); g.arc(x, y, 10, 0, TAU); g.fill(); } });
+  const argyle = (a, c) => LOOK.tex('ar' + a + c, (g, w, h) => { g.fillStyle = a; g.fillRect(0, 0, w, h); g.fillStyle = c; for (let y = 0; y < h; y += 64) for (let x = 0; x < w; x += 64) { g.beginPath(); g.moveTo(x + 32, y); g.lineTo(x + 64, y + 32); g.lineTo(x + 32, y + 64); g.lineTo(x, y + 32); g.fill(); } g.strokeStyle = '#f4efe4'; g.lineWidth = 2; for (let i = -w; i < w; i += 32) { g.beginPath(); g.moveTo(i, 0); g.lineTo(i + h, h); g.stroke(); g.beginPath(); g.moveTo(i + h, 0); g.lineTo(i, h); g.stroke(); } });
+  const splat = () => LOOK.tex('splat', (g, w, h) => { g.fillStyle = '#ece6d6'; g.fillRect(0, 0, w, h); for (let i = 0; i < 40; i++) { g.fillStyle = pick(['#e94e3c', '#3d8ac9', '#f2c14e', '#4aa36a', '#b088d8']); g.beginPath(); g.arc(rr(0, w), rr(0, h), rr(4, 16), 0, TAU); g.fill(); } });
+  LOOK.shirt = (p) => p.hip.children.find((m) => m.isMesh && Math.abs(m.scale.x - 0.34) < 0.01 && Math.abs(m.scale.y - 0.42) < 0.01);
+  LOOK.helm = (p) => p.head.children.find((m) => m.isMesh && m.geometry === PEOPLE.helm);
+  // hairstyles: every piece is smooth and shares the hair material so it reads as one shape
+  LOOK.hair = (p, style) => {
+    const h = LOOK.helm(p); if (!h) return; const hm = h.material, head = p.head;
+    if (style === 'afro') { h.geometry = PG.sph; h.scale.set(0.2, 0.19, 0.2); h.position.set(0, 0.18, -0.02); h.rotation.x = 0; }
+    if (style === 'buzz') { h.scale.set(0.148, 0.155, 0.15); }
+    if (style === 'bangs') mk(PG.sph, hm, 0.135, 0.045, 0.07, 0, 0.215, 0.085, head).rotation.x = 0.35;
+    if (style === 'side') { const m = mk(PG.sph, hm, 0.1, 0.05, 0.12, 0.06, 0.27, 0.03, head); m.rotation.z = -0.35; }
+    if (style === 'braids') for (const s of [-1, 1]) for (let i = 0; i < 4; i++) mk(PG.sph, hm, 0.03 - i * 0.002, 0.035, 0.03, s * 0.13, 0.08 - i * 0.055, -0.04, head);
+    if (style === 'messy') for (let i = 0; i < 6; i++) { const a = i / 6 * TAU; mk(PG.sph, hm, 0.05, 0.035, 0.05, Math.cos(a) * 0.09, 0.27 + Math.sin(i * 3) * 0.01, Math.sin(a) * 0.09 - 0.02, head); }
+  };
+  Object.assign(CAST.priya, { hair: 'braids' }); Object.assign(CAST.tom, { hair: 'afro' }); Object.assign(CAST.nina, { hair: 'bangs' }); Object.assign(CAST.ben, { hair: 'side' }); Object.assign(CAST.leo, { hair: 'buzz' });
+  // outfits by role
+  LOOK.role = (p, r) => {
+    const sh = LOOK.shirt(p), hip = p.hip;
+    if (r === 'clown' && sh) { sh.material = toon('#ffffff', { map: stripes('#e94e3c', '#f6d04a'), bump: 0, rough: 0.9 }); for (const s of [-1, 1]) mk(PG.sph, toon('#3d6fb4'), 0.045, 0.035, 0.025, s * 0.04, 0.4, 0.105, hip); mk(PG.sph, toon('#2a4a8a'), 0.02, 0.02, 0.02, 0, 0.4, 0.11, hip); }
+    if (r === 'nerd') { mk(RB(), toon('#ffffff', { map: argyle('#5a7a4a', '#8aa86a'), bump: 0, rough: 0.95 }), 0.352, 0.3, 0.212, 0, 0.17, 0, hip); mk(RB(), toon('#3d6fb4'), 0.04, 0.16, 0.012, 0, 0.3, 0.11, hip); }
+    if (r === 'bully') { if (sh) sh.material = toon('#3a3d44', { rough: 0.95 }); const hood = new THREE.Mesh(PEOPLE.helm, toon('#3a3d44', { side: THREE.DoubleSide, rough: 0.95 })); hood.scale.set(0.15, 0.12, 0.12); hood.position.set(0, 0.42, -0.1); hood.rotation.x = 2.2; hip.add(hood); mk(RB(), toon('#2e3036'), 0.24, 0.1, 0.03, 0, 0.1, 0.105, hip); }
+    if (r === 'pet') { for (const s of [-1, 1]) mk(RB(), toon('#f6d6e6', { rough: 0.95 }), 0.13, 0.4, 0.215, s * 0.105, 0.2, 0, hip); for (let i = 0; i < 3; i++) mk(PG.sphLo, toon('#f4efe4'), 0.012, 0.012, 0.01, 0.04, 0.3 - i * 0.08, 0.11, hip); mk(PG.sph, toon('#f2c14e', { emissive: '#5a3a00', emissiveIntensity: 0.4 }), 0.025, 0.025, 0.01, -0.09, 0.33, 0.112, hip); }
+    if (r === 'sleepy' && sh) { sh.material = toon('#ffffff', { map: dots('#7a9ac8', '#f4efe4'), bump: 0, rough: 0.95 }); }
+  };
+  // teachers each get their own outfit
+  const coatLong = (p, c) => { const m = mk(RB(), toon(c, { rough: 0.9 }), 0.37, 0.72, 0.23, 0, 0.06, 0, p.hip); return m; };
+  const hat = (p, c, wide = false) => { mk(PG.cyl, toon(c, { rough: 0.85 }), wide ? 0.3 : 0.2, 0.02, wide ? 0.3 : 0.2, 0, 0.27, 0, p.head); mk(PG.sph, toon(c, { rough: 0.85 }), 0.15, 0.08, 0.15, 0, 0.28, 0, p.head); };
+  LOOK.teacher = (p, id) => {
+    const sh = LOOK.shirt(p), hip = p.hip;
+    ({
+      hart: () => { for (const s of [-1, 1]) mk(RB(), toon('#8a2a3a', { rough: 0.95 }), 0.13, 0.42, 0.215, s * 0.105, 0.2, 0, hip); },
+      ellis: () => { if (sh) sh.material = toon('#3a5a8a', { rough: 0.9 }); for (const s of [-1, 1]) mk(RB(), toon('#2a4a7a'), 0.04, 0.3, 0.215, s * 0.08, 0.28, 0.005, hip); hat(p, '#6a6e72'); },
+      okafor: () => { mk(RB(), toon('#7a3a8a', { rough: 0.95 }), 0.42, 0.14, 0.24, 0, 0.38, 0, hip); for (let i = 0; i < 7; i++) mk(PG.sphLo, toon(pick(['#f2c14e', '#e94e3c', '#3d8ac9'])), 0.018, 0.018, 0.018, -0.07 + i * 0.023, 0.33 - Math.sin(i / 6 * Math.PI) * 0.04, 0.11, hip); },
+      bell: () => { mk(RB(), toon('#f8f6f0', { rough: 0.9 }), 0.3, 0.5, 0.02, 0, 0.08, 0.11, hip); mk(PG.sph, toon('#e8eef0', { transparent: true, opacity: 0.6 }), 0.17, 0.12, 0.17, 0, 0.22, -0.02, p.head); },
+      petrenko: () => { coatLong(p, '#f4f4f0'); mk(RB(), toon('#9ad0e0', { emissive: '#2a6070', emissiveIntensity: 0.25, rough: 0.2 }), 0.24, 0.05, 0.05, 0, 0.23, 0.12, p.head); },
+      lieu: () => { if (sh) sh.material = toon('#2a2a30', { rough: 0.8 }); for (const s of [-1, 1]) mk(PG.sph, toon('#c94d3a'), 0.04, 0.03, 0.02, s * 0.035, 0.41, 0.105, hip); },
+      brandt: () => { if (sh) sh.material = toon('#c9342a', { rough: 0.8 }); for (const lg of [p.lL, p.lR]) for (const m of lg.p.children.concat(lg.knee.children)) if (m.isMesh && m.scale.x > 0.1 && m.scale.y > 0.25) m.material = toon('#c9342a', { rough: 0.8 }); mk(PG.sph, toon('#d0d4d8', { metal: 0.8, rough: 0.3 }), 0.025, 0.02, 0.03, 0.03, 0.22, 0.12, hip); hat(p, '#c9342a'); },
+      moss: () => { if (sh) sh.material = toon('#4a7a3a', { rough: 0.9 }); hat(p, '#d8b86a', true); },
+      rivera: () => { coatLong(p, '#ffffff').material = toon('#ffffff', { map: splat(), bump: 0, rough: 0.9 }); const b2 = mk(PG.sph, toon('#c9342a', { rough: 0.9 }), 0.16, 0.05, 0.16, 0.03, 0.28, 0, p.head); b2.rotation.z = -0.25; },
+      sato: () => { mk(RB(), toon('#2a3a5a', { rough: 0.9 }), 0.355, 0.36, 0.215, 0, 0.19, 0, hip); mk(PG.sph, toon('#f2c14e', { emissive: '#5a3a00', emissiveIntensity: 0.5 }), 0.025, 0.025, 0.01, -0.09, 0.32, 0.113, hip); },
+      gus: () => { hat(p, '#2a3a5a'); mk(RB(), toon('#e8f04a', { rough: 0.8 }), 0.355, 0.36, 0.215, 0, 0.19, 0, hip); },
+      sub: () => { coatLong(p, '#8a6a4a'); },
+    }[id] || (() => {}))();
+  };
+  // apply: hair after the person is built, role outfits when the cast is assigned
+  const _P = Person;
+  Person = class extends _P { constructor(L, b, x, y, z, o = {}) { super(L, b, x, y, z, o); if (o.hair) LOOK.hair(this, o.hair); else if (this.kind === 'kid' && R() < 0.45 && !this.head.children.some((m) => m.isMesh && Math.abs(m.scale.y - 0.09) < 0.002)) LOOK.hair(this, pick(['bangs', 'side', 'buzz', 'messy']));
+    const head = this.head; this.blush = [-1, 1].map((s) => { const m = new THREE.Mesh(PG.sph, toon('#f2788a', { transparent: true, opacity: 0.75, rough: 0.6 })); m.scale.set(0.035, 0.018, 0.01); m.position.set(s * 0.075, 0.1, 0.128); m.visible = false; head.add(m); return m; }); } };
+  const _init = Cast.init.bind(Cast); Cast.init = function (p, id) { _init(p, id); if (ROLES[id]) LOOK.role(p, ROLES[id]); };
+  // expressions: happy squints, cross narrows, scared widens, sleepy droops; blush near Mia
+  const _u = Person.prototype.update;
+  Person.prototype.update = function (dt, t, fl) {
+    _u.call(this, dt, t, fl);
+    if (!this.eyes || !this.blush) return;
+    const rk = this.state === 'react' ? this.reactKind : null, mood = this.castId ? moodOf(this.castId) : 'ok', asleep = this.act && this.act.kind === 'sleep';
+    if (asleep) return;
+    let ey = null;
+    if (['cheer', 'wave', 'dance', 'clap', 'laugh'].includes(rk) || (this.act && this.act.kind === 'laughS')) ey = 0.011;
+    else if (rk === 'startle' || rk === 'duck' || rk === 'gasp') ey = 0.036;
+    else if (mood === 'grumpy' || (this.role === 'bully' && this.state === 'idle')) ey = 0.017;
+    else if (this.role === 'sleepy' && this.state === 'idle') ey = 0.013;
+    if (ey !== null && this.eyes[0].scale.y > 0.006) for (const e of this.eyes) e.scale.y = ey;
+    // blush: kids near Mia, and Mia when the plane is close
+    this._bT = (this._bT || 0) - dt; if (this._bT <= 0) { this._bT = 0.4; const L = this.L, S = L.S || 1; let on = false;
+      if (this.kind === 'mia') on = fl && fl.state === 'fly' && this.worldPos(_pw2).add(v3(0, 1.2 * S, 0)).distanceTo(fl.pos) < 3 * S;
+      else if (this.kind === 'kid' && (this.castId === 'ollie' || this.castId === 'zoe' || R() < 0.3)) { const m = L._miaP === undefined ? (L._miaP = L.people.find((q) => q.kind === 'mia') || null) : L._miaP; on = !!m && m.worldPos(_pw2).distanceTo(this.worldPos(new V3())) < 2.2 * S; }
+      for (const b2 of this.blush) b2.visible = on; }
+  };
+}
+
+// ═════════ v9: STORYLINES — Max steals Sam’s pages, Priya’s volcano, the prank, the tattle ═════════
+const MAXP = () => Store.data.maxPages || (Store.data.maxPages = {});
+{
+  const LV = ['corridor', 'canteen', 'gym'];
+  for (const id of LV) { const d = LEVELS.find((q) => q.id === id); const ob = d.build; d.build = function (L, b) { ob.call(this, L, b); if (L.def.id !== id) return;
+    const mx = L.people.find((p) => p.castId === 'max'); if (!mx || MAXP()[id]) return;
+    const page = new THREE.Mesh(PEOPLE.rbox || PG.box, toon('#fbf8ef', { rough: 0.95 })); page.scale.set(0.14, 0.18, 0.01); page.position.set(0, -0.5, 0.06); mx.aR.p.add(page);
+    let taunt = 0, said = false;
+    b.update((dt, t, fl) => { if (L.passive || MAXP()[id]) return; const S = L.S || 1; mx.root.updateMatrixWorld(true); const hp = page.getWorldPosition(_a2); const d = hp.distanceTo(fl.pos);
+      if (!said && Game.level === L && Game.mode === 'play' && Game.runT > 2) { said = true; UI.toast(`😠 Max has page ${LV.indexOf(id) + 1} of Sam’s note — fly close to snatch it back!`, 3.5); }
+      taunt -= dt; if (d < 6 * S && taunt <= 0 && mx.state === 'idle') { taunt = 3; mx.roleOv = { o: (tt) => ({ aRx: -2.7 + Math.sin(tt * 8) * 0.3, aRz: 0.2 }), t: 2 }; mx.say(pick(['Come get it, paper boy!', 'Too slow!', '“Dear Mia…” HA!', 'Mine now!']), 1.5, '#ffe0d8'); }
+      if (fl.state === 'fly' && d < 0.9 * S) { MAXP()[id] = 1; page.visible = false; stat('maxPages'); const n = Object.keys(MAXP()).length; Store.save();
+        Audio.page(); bursts.emit(hp, 30, 0xffffff, 2, -1); UI.big(`Page back! ${n}/3`, 1.4); mx.say(n >= 3 ? 'Fine! FINE. …it’s a nice note, actually.' : pick(['HEY!', 'No fair!', 'Give that back!']), 2, '#ffe0d8');
+        if (n >= 3) { REL().max = 4; Cast.mood(mx); UI.toast('Max is your fan now. Weird.', 3); } checkAch(); Game.addScore(400, 'page back'); } });
+  }; }
+  CUTS.corridor = (CUTS.corridor || []).slice(0, -1).concat([['max', 'Nice note, Sam. “Dear Mia…” These pages are MINE.'], (CUTS.corridor || []).slice(-1)[0]].filter(Boolean));
+  ACHS.push({ id: 'maxPages', n: 'Special delivery', d: 'Snatch all 3 pages back from Max', chk: () => Object.keys(Store.data.maxPages || {}).length >= 3, ic: '📄' });
+  // Priya's volcano in the lab: it erupts every few seconds — ride the blast
+  const LD = LEVELS.find((q) => q.id === 'lab'), olb = LD.build;
+  LD.build = function (L, b) { olb.call(this, L, b); if (L.def.id !== 'lab') return;
+    const VX = 2.9, VY = 0.92, VZ = 3.6; const brown = toon('#7a5a3a', { rough: 0.95 });
+    b.cyl(VX, VY, VZ, 0.36, 0.42, brown, { r2: 0.09, seg: 16 }); const crater = new THREE.Mesh(new THREE.CircleGeometry(0.085, 14), StdM({ color: 0xff5a1a, emissive: new THREE.Color(0xff3a00), emissiveIntensity: 1 })); crater.rotation.x = -Math.PI / 2; crater.position.set(VX, VY + 0.425, VZ); L.group.add(crater);
+    sign(b, VX, VY + 0.1, VZ - 0.58, Math.PI, 'PRIYA’S VOLCANO', 0.7, 0.16, '#7a3a8a');
+    const on = (t) => (t % 9) < 2.4;
+    L.zones.push({ min: v3(VX - 0.55, VY + 0.45, VZ - 0.55), max: v3(VX + 0.55, 4.8, VZ + 0.55), vel: v3(0, 5.2, 0), active: (t) => (on(t) ? 1 : 0), fxSize: 0.07, tint: 0xff8a40 });
+    let was = false;
+    b.update((dt, t) => { const e = on(t); crater.material.emissiveIntensity = e ? 2.5 : 0.6 + Math.sin(t * 3) * 0.2;
+      if (e) { const S = L.S || 1; if (R() < 0.6) bursts.emit(_a2.set(VX * S, (VY + 0.5) * S, VZ * S), 3, pick([0xff6a2a, 0xffb040, 0xff3a1a, 0xffffff]), 2.2, 2.5); }
+      if (e && !was && Game.level === L) { Audio.noiseHit(1.2, 140, 0.4, 0.6, 0, 'lowpass'); const pr = L.people.find((p) => p.castId === 'priya'); if (pr && pr.state === 'idle') pr.say(pick(['It’s WORKING!', 'Eruption! As predicted!', 'Ride the thermal, Sam!', 'Science!']), 1.8, '#fff3c4'); for (const p of L.people) if (p instanceof Person && p.state === 'idle' && R() < 0.25) p.say(pick(['Whoa!', 'Cool!', 'Is it supposed to do that?']), 1.4); }
+      was = e; });
+    L.hints.push({ box: box3(VX - 1.5, 0, VZ - 1.5, VX + 1.5, 4.8, VZ + 1.5), text: 'Priya’s volcano erupts every few seconds — ride the blast up!' });
+  };
+}
+// the director gets bigger scenes: the prank, the tattle, a pop quiz, a fire drill, the substitute
+TEACHERS.sub = { n: 'Mr. Pratt (substitute)', chat: ['Is this… 5B?', 'Nobody told me there’d be planes.', 'Sit… somewhere.', 'Who is Jake? Everyone says they’re Jake.', 'I’m a geography teacher.'] };
+LESSONS.sub = [['Is this… 5B?', 'Yes, sir!', 'No, it’s 9Z!'], ['Who can tell me where Paris is?', 'France!', 'In the fridge!'], ['Ms. Hart left a note… “page 42”?', 'Page 42!', 'Page… 4,000?']];
+const QUIZ = [['7 × 8?', '56', ['54', '58']], ['Capital of France?', 'Paris', ['Rome', 'Berlin']], ['H₂O is…', 'Water', ['Salt', 'Air']], ['Red + blue?', 'Purple', ['Green', 'Orange']], ['Legs on a spider?', '8', ['6', '10']], ['12 + 9?', '21', ['19', '22']], ['Planets around the Sun?', '8', ['9', '7']], ['Half of 42?', '21', ['24', '12']]];
+const DOORS = { class: [-8.6, -5.05], canteen: [-11.6, 2.55], lab: [-8.5, -5], music: [-10.5, 6], art: [-9.5, 5], library: [10, -7.5] };
+{
+  const labelTex = (txt, bg = '#fffaf0') => { const k = 'qz' + txt + bg; if (TEX[k]) return TEX[k]; const t = canvasTex(256, 96, (g, w, h) => { g.fillStyle = bg; g.strokeStyle = '#2b2118'; g.lineWidth = 6; g.beginPath(); g.roundRect(4, 4, w - 8, h - 8, 26); g.fill(); g.stroke(); g.fillStyle = '#2b2118'; g.font = `bold 52px ${FONT_BOLD}`; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(txt, w / 2, h / 2 + 3); }, { repeat: false }); return (TEX[k] = t); };
+  const st = document.createElement('style'); st.textContent = `body.alarm::after { content: ''; position: fixed; inset: 0; pointer-events: none; z-index: 5; box-shadow: inset 0 0 120px 40px rgba(230,40,30,0.55); animation: alarmP 0.6s steps(2) infinite; } @keyframes alarmP { 50% { box-shadow: inset 0 0 60px 10px rgba(230,40,30,0.2); } } @media (prefers-reduced-motion: reduce) { body.alarm::after { animation: none; } }`; document.head.appendChild(st);
+  const _attach = Class.attach.bind(Class);
+  Class.attach = function (L) {
+    const fresh = !L._class; _attach(L); if (!fresh || !L._class) return; const C = L._class;
+    // a substitute shows up sometimes
+    const tch = L.people.find((p) => p.teacher);
+    if (tch && !L.passive && ['class', 'lab', 'music', 'art'].includes(L.def.id) && R() < 0.35) { C.sub = true; tch.teacher = 'sub'; tch.o.chat = TEACHERS.sub.chat; if (tch.tag) { tch.tag.material.map = nameTex(TEACHERS.sub.n, '#ffe8c8'); const a = tch.tag.material.map.userData.aspect || 4; tch.tag.scale.set(0.15 * a, 0.15, 1); } }
+    for (const p of L.people) if (p instanceof Person && p.teacher && !p._looked) { p._looked = true; LOOK.teacher(p, p.teacher); }
+    C.cool2 = rr(9, 14); C.quizT = rr(18, 28); C.drill = !L.passive && R() < 0.35 ? rr(35, 60) : null; C.quiz = null;
+  };
+  const _tick = Class.tick.bind(Class);
+  Class.tick = function (L, dt, t, fl) {
+    _tick(L, dt, t, fl); const C = L._class, S = L.S || 1, ppl = L.people.filter((p) => p instanceof Person);
+    const teacher = ppl.find((p) => p.teacher && this.free(p)), role = (r) => ppl.find((p) => p.role === r), kids = ppl.filter((p) => p.kind === 'kid' && this.free(p));
+    const playing = Game.level === L && Game.mode === 'play' && !L.passive && !Game.mp;
+    if (C.sub) C.cool = Math.min(C.cool, rr(2, 3.5)); // the class runs wild with a sub
+    // pop quiz: three answer rings appear ahead — fly through the right one
+    if (C.quiz) { const Q = C.quiz; Q.t -= dt; for (const r of Q.rings) { r.g.rotation.z += dt * 0.6; r.g.position.y += Math.sin(t * 2 + r.i) * 0.002; }
+      const hit = fl && fl.state === 'fly' ? Q.rings.find((r) => r.g.position.distanceTo(fl.pos) < 0.55 * S) : null;
+      if (hit || Q.t <= 0) { for (const r of Q.rings) L.outer.remove(r.g); C.quiz = null;
+        if (hit && hit.ok) { Audio.win(); UI.big('Correct! +500', 1.3); Game.addScore(500, 'quiz'); stat('quizzes'); if (teacher) this.say(teacher, pick(['Correct! Well flown.', 'Full marks, little plane.']), '#e4ecff', 'nod'); for (const k of kids.slice(0, 4)) this.later(L, rr(0.1, 0.6), () => { k.startReact('cheer', fl, true); }); checkAch(); }
+        else if (hit) { Audio.tone(200, 0.4, 'sawtooth', 0.06, 0, 0.6); UI.big('Wrong!', 1.1); const cl = role('clown'); if (cl && this.free(cl)) { this.say(cl, 'Even the PLANE got it wrong!', '#fff3c4'); this.laugh(L, cl, 4); } }
+        else if (teacher) this.say(teacher, 'Time’s up!', '#e4ecff'); } }
+    else if (playing && teacher && Game.runT > 15) { C.quizT -= dt; if (C.quizT <= 0) { C.quizT = rr(50, 75);
+      const [q, a, wrong] = pick(QUIZ), opts = [a, ...wrong].sort(() => R() - 0.5); this.say(teacher, `Pop quiz! ${q}`, '#e4ecff', 'gesture'); UI.toast(`✎ Pop quiz: ${q} Fly through the right answer!`, 3.5);
+      const F = new V3(); fl.getWorldDirection ? fl.getWorldDirection(F) : F.copy(fl.F || v3(0, 0, 1)); F.y = 0; F.normalize(); const Rt = v3(F.z, 0, -F.x);
+      const rings = opts.map((o, i) => { const g = new THREE.Group(); const tor = new THREE.Mesh(new THREE.TorusGeometry(0.42 * S, 0.035 * S, 8, 30), StdM({ color: 0xffd060, emissive: new THREE.Color(0x6a4a00), emissiveIntensity: 0.6 })); g.add(tor);
+        const lab = new THREE.Sprite(new THREE.SpriteMaterial({ map: labelTex(o), transparent: true, depthWrite: false })); lab.scale.set(0.8 * S, 0.3 * S, 1); lab.position.y = 0.62 * S; g.add(lab);
+        g.position.copy(fl.pos).addScaledVector(F, 5 * S).addScaledVector(Rt, (i - 1) * 1.4 * S); g.position.y = Math.max(g.position.y, 0.9 * S); g.lookAt(fl.pos); L.outer.add(g); return { g, ok: o === a, i }; });
+      C.quiz = { rings, t: 14 }; } }
+    // fire drill
+    if (C.drill != null && playing && Game.runT > C.drill && teacher && kids.length >= 4 && !C.drilling) { C.drill = null; C.drilling = { t: 0, ppl: kids.slice(0, 14).map((p) => ({ p, pos: p.root.position.clone(), pose: p.pose, ry: p.root.rotation.y })) };
+      const d = DOORS[L.def.id]; C.drilling.door = d ? v3(d[0], 0, d[1]) : teacher.root.position.clone().add(v3(1.5, 0, 0)); document.body.classList.add('alarm'); UI.big('FIRE DRILL!', 1.6); stat('drills'); checkAch(); }
+    if (C.drilling) { const D = C.drilling; D.t += dt;
+      if (Math.floor(D.t * 2.5) !== Math.floor((D.t - dt) * 2.5) && D.t < 6) Audio.tone(D.t * 2.5 % 2 < 1 ? 880 : 660, 0.35, 'square', 0.03);
+      if (!D.started) { D.started = true; this.say(teacher, 'Everyone OUT! Single file!', '#e4ecff', 'gesture'); for (const it of D.ppl) { it.p.pose = 'stand'; if (R() < 0.4) it.p.say(pick(['Fire?!', 'Is it real?', 'Leave your bags!', 'Yesss, no maths!']), 1.4); } }
+      const out = D.t < 9, back = D.t > 14 && D.t < 22;
+      D.ppl.forEach((it, i) => { const p = it.p; const target = out || (D.t >= 9 && D.t <= 14) ? D.door.clone().add(v3(0, 0, (i - D.ppl.length / 2) * 0.5)) : it.pos; const lp = p.root.position; const dx = target.x - lp.x, dz = target.z - lp.z, dd = Math.hypot(dx, dz);
+        if ((out || back) && dd > 0.1) { lp.x += dx / dd * Math.min(dd, 1.1 * dt); lp.z += dz / dd * Math.min(dd, 1.1 * dt); p.root.rotation.y = Math.atan2(dx, dz); p.roleOv = { o: (tt) => ({ tL: Math.sin(tt * 8 + i) * 0.5, tR: -Math.sin(tt * 8 + i) * 0.5, aLx: -Math.sin(tt * 8 + i) * 0.4, aRx: Math.sin(tt * 8 + i) * 0.4 }), t: 0.2 }; } });
+      if (D.t > 6 && D.t - dt <= 6) document.body.classList.remove('alarm');
+      if (D.t > 10 && D.t - dt <= 10) { this.say(teacher, '…twenty-two, twenty-three. All here!', '#e4ecff', 'nod'); const cl = role('clown'); if (cl) this.later(L, 1.6, () => this.say(cl, 'Can we stay out here forever?', '#fff3c4')); }
+      if (D.t > 13 && D.t - dt <= 13) this.say(teacher, 'False alarm. Back to your seats!', '#e4ecff', 'gesture');
+      if (D.t > 22) { for (const it of D.ppl) { it.p.root.position.copy(it.pos); it.p.pose = it.pose; it.p.root.rotation.y = it.ry; it.p.roleOv = null; it.p.override = null; } C.drilling = null; document.body.classList.remove('alarm'); } }
+    // the bigger scenes
+    C.cool2 -= dt; if (C.cool2 > 0 || C.drilling) return; C.cool2 = rr(14, 22);
+    const clown = role('clown'), bully = role('bully'), pet = role('pet'), opts = [];
+    if (clown && teacher && this.free(clown)) opts.push('prank');
+    if (pet && bully && teacher && this.free(pet) && this.free(bully)) opts.push('tattle');
+    if (C.sub && clown && this.free(clown)) opts.push('subjoke');
+    if (!opts.length) return; const ev = pick(opts); stat('classMoments');
+    if (ev === 'prank') { this.say(clown, pick(['Shh… watch this.', '*hides a whoopee cushion*', 'This is gonna be EPIC.']), '#fff3c4'); this.pose(clown, POSE.flick, 1);
+      C.prank = { t: 7, warned: false }; if (playing) UI.toast('🤡 Jake set a prank on the teacher’s chair — fly past the teacher to warn them!', 3.2);
+      const tick2 = () => { const P = C.prank; if (!P) return; P.t -= 0.2; if (fl && fl.state === 'fly' && teacher.worldPos(_pw2).add(v3(0, 1.2 * S, 0)).distanceTo(fl.pos) < 2.5 * S && !P.warned) { P.warned = true; C.prank = null; this.say(teacher, pick(['A whoopee cushion?! Thank you, little plane.', 'Nice try, Jake.']), '#e4ecff', 'gesture'); this.later(L, 1.4, () => this.say(clown, 'Aww, the PLANE snitched!', '#fff3c4')); stat('prankFoiled'); checkAch(); Game.addScore(300, 'prank foiled'); return; }
+        if (P.t <= 0) { C.prank = null; Audio.noiseHit(0.7, 120, 0.4, 0.4, 0, 'lowpass'); Audio.tone(90, 0.6, 'sawtooth', 0.05, 0, 0.7); this.say(teacher, 'JAKE!', '#e4ecff', 'gesture'); this.laugh(L, clown, 6); this.later(L, 1.2, () => this.say(clown, 'Wasn’t me! It was the chair!', '#fff3c4')); return; }
+        this.later(L, 0.2, tick2); }; this.later(L, 0.2, tick2); }
+    if (ev === 'tattle') { this.pose(pet, POSE.hand, 2); this.say(pet, pick(['Miss! Max took my pencil!', 'Miss, Max is flicking paper again!', 'Max said a bad word!']), '#ffe6ee');
+      this.later(L, 1.6, () => this.say(bully, pick(['SNITCH!', 'Did not!', 'Prove it.']), '#ffe0d8'));
+      const crowd = kids.filter((k) => k !== pet && k !== bully).slice(0, 6);
+      crowd.forEach((k, i) => this.later(L, 2.4 + i * 0.35, () => { const side = i % 2 === 0; this.say(k, side ? pick(['Emma’s right!', 'I saw it!', 'Leave her alone, Max!']) : pick(['Snitches get stitches!', 'Nobody likes a tattletale.', 'Ugh, Emma.']), side ? '#ffe6ee' : '#ffe0d8'); }));
+      this.later(L, 2.6 + crowd.length * 0.35, () => this.say(teacher, pick(['ENOUGH. Max — pencil. Emma — thank you. Everyone — page 42.', 'Both of you, see me after class.']), '#e4ecff', 'gesture')); }
+    if (ev === 'subjoke') { this.say(clown, pick(['Sir, I’m Ms. Hart now.', 'Sir, our real teacher lets us fly planes.', 'Sir, my name is Jake. And his name is Jake. All Jake.']), '#fff3c4', 'gesture'); this.laugh(L, clown, 6); if (teacher) this.later(L, 1.8, () => this.say(teacher, pick(['Is that… true?', 'Okay, all the Jakes, sit down.', 'I need a coffee.']), '#ffe8c8', 'shrug')); }
+  };
+  // a toast when a sub turns up
+  const _begin = Game.begin; Game.begin = function () { const r = _begin.call(this); const C = this.level && this.level._class; if (C && C.sub && !this.mp) setTimeout(() => UI.toast('📋 A substitute teacher today. The class is… excited.', 3), 1200); document.body.classList.remove('alarm'); return r; };
+  ACHS.push({ id: 'quiz3', n: 'Teacher’s plane', d: 'Ace 3 pop quizzes', k: 'quizzes', v: 3, ic: '✎' }, { id: 'drill', n: 'Single file', d: 'Live through a fire drill', k: 'drills', v: 1, ic: '🚨' }, { id: 'snitch', n: 'Plane snitch', d: 'Warn a teacher about Jake’s prank', k: 'prankFoiled', v: 1, ic: '🤡' });
+}
+
+// ═════════ v9: MORE SECRET ROOMS ═════════
+Object.assign(SECRETS, {
+  corridor: { v: [2.98, 3.0, 28, -Math.PI / 2], n: 'Lost & found', theme: 'lost', note: 'Lost: one note. “Dear Sam…” Signed: M.' },
+  library: { v: [11.98, 5.0, 4, -Math.PI / 2], n: 'The rare books room', theme: 'books', note: 'Overdue since 1998: “Paper Planes for Beginners”.' },
+  lab: { v: [-6, 4.0, -6.98, 0], n: 'The chemical store', theme: 'chem', note: 'Petrenko’s note: “Volcano too big. Priya too clever.”' },
+  music: { v: [-10.98, 4.2, 5, Math.PI / 2], n: 'The instrument store', theme: 'band', note: 'Mia’s drumsticks. Initials carved: M + S.' },
+  art: { v: [6, 4.2, -7.98, 0], n: 'The kiln room', theme: 'kiln', note: 'A clay plane, fired and glazed. Signed: Ana.' },
+  party: { v: [-11, 3.6, -13.97, 0], n: 'Mia’s secret den', theme: 'den', note: 'Mia’s diary: “Sam’s planes. I keep every one.”' },
+  rain: { v: [-30, 4.7, -23.97, 0], n: 'The storm cellar', theme: 'boiler', note: 'Mr. Moss’s umbrella collection. 47 umbrellas.' },
+});
+{
+  const RY = 40;
+  const extra = (L, b, theme) => { // props for the new themes
+    const T = (c) => toon('#ffffff', { map: TEX.wood(c) });
+    if (theme === 'lost') { for (let i = 0; i < 6; i++) b.aabb(-2.2 + (i % 3) * 0.75, RY, 1.5 + (i / 3 | 0) * 0.5, -1.6 + (i % 3) * 0.75, RY + 0.45, 1.95 + (i / 3 | 0) * 0.5, toon('#c8a878')); for (let i = 0; i < 10; i++) b.sphere(rr(-2, 2), RY + 0.08, rr(-1.8, 1), 0.08, toon(pick(['#e94e3c', '#3d8ac9', '#f2c14e', '#4aa36a'])), { collide: false, seg: 8 }); sign(b, 0, RY + 2.6, 2.48, Math.PI, 'LOST & FOUND', 1.4, 0.3, '#5a4a3a'); }
+    if (theme === 'books') { b.push(0, RY, 0); for (let k = 0; k < 3; k++) bookshelf(b, -1.6 + k * 1.6, 2.1, Math.PI, {}); b.pop(); b.aabb(-2.3, RY, -2.3, -1.6, RY + 0.8, -1.6, M.woodDark); }
+    if (theme === 'chem') { for (let i = 0; i < 3; i++) b.aabb(1.8, RY + 0.5 + i * 0.7, -2.3, 2.45, RY + 0.54 + i * 0.7, 2.3, M.metalDark); for (let i = 0; i < 18; i++) b.cyl(2.1, RY + 0.54 + (i % 3) * 0.7, -2 + (i / 3 | 0) * 0.75, 0.07, 0.25, glow(pick(['#7aff9a', '#ff7aa0', '#7ac8ff', '#ffd27a']), 1.4), { collide: false, seg: 8 }); }
+    if (theme === 'band') { b.cyl(-1.5, RY, 1.5, 0.35, 0.4, toon('#c9342a'), { seg: 16 }); b.cyl(-1.5, RY + 0.4, 1.5, 0.34, 0.02, toon('#f4efe4'), { seg: 16, collide: false }); for (let i = 0; i < 3; i++) b.aabb(1.0 + i * 0.4, RY, 1.6, 1.3 + i * 0.4, RY + 1.0, 2.3, toon('#2a2a30')); }
+    if (theme === 'kiln') { b.aabb(1.0, RY, 1.2, 2.3, RY + 1.4, 2.3, toon('#8a8580', { rough: 0.8 })); b.box(1.65, RY + 0.5, 1.19, 0.6, 0.5, 0.02, glow('#ff6a2a', 1.4), { collide: false }); for (let i = 0; i < 6; i++) b.cyl(-2 + i * 0.35, RY + 0.8, 2.2, 0.08, 0.2, toon(pick(['#c88a5a', '#7aa0c8', '#d8b86a'])), { seg: 10, r2: 0.05 }); b.aabb(-2.3, RY + 0.76, 1.9, 0.0, RY + 0.8, 2.4, M.wood); }
+    if (theme === 'den') { b.aabb(-2.3, RY, 1.2, -0.8, RY + 0.4, 2.3, toon('#e07a9a')); for (let i = 0; i < 8; i++) { const m = new THREE.Mesh(planeGeometry(pick(['dart', 'glider', 'swallow'])), toon(pick(['#f4f1ea', '#f2c8c8', '#cfe3f2']), { side: THREE.DoubleSide })); m.scale.setScalar(1.6); m.position.set(rr(-2, 2) * (L.S || 1), (RY + 2.5 + rr(-0.2, 0.2)) * (L.S || 1), rr(0.5, 2.2) * (L.S || 1)); m.rotation.y = rr(0, TAU); L.outer.add(m); } }
+  };
+  for (const id of ['corridor', 'library', 'lab', 'music', 'art', 'party', 'rain']) { const d = LEVELS.find((q) => q.id === id), D = SECRETS[id]; const ob = d.build; d.build = function (L, b) { ob.call(this, L, b); if (L.def.id !== id || !SEC_BUILD) return; SEC_BUILD(L, b, id, D); extra(L, b, D.theme); }; }
+}
 
 boot();
 
