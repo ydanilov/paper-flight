@@ -7725,21 +7725,17 @@ const PEOPLE = { rbox: null, arc: null };
       this.root.traverse((m) => { if (!m.isMesh) return; if (m.geometry === PG.box && Math.min(m.scale.x, m.scale.y, m.scale.z) > 0.025) m.geometry = PEOPLE.rbox; });
       const skinM = this.mouth.parent.children[0].material; soft(skinM, 0.55);
       for (const e of this.brows) soft(e.material, 0.45);
-      // proportions: smaller heads (about 1:6 for kids, 1:7 for adults), a real neck
-      const hs = o.boss ? 0.78 : adult ? 0.72 : this.kind === 'bully' ? 0.76 : 0.8;
-      head.scale.setScalar(hs); head.position.y = 0.11;
-      const neck = head.parent; if (neck.children[0] && neck.children[0].isMesh) { neck.children[0].scale.set(0.075, 0.12, 0.075); neck.children[0].position.y = 0.05; }
+      // smooth & cute: full-size friendly heads, big glossy eyes, hair as one helmet that hugs the head
+      if (!PEOPLE.helm) { PEOPLE.helm = new THREE.SphereGeometry(1, 28, 18, 0, TAU, 0, Math.PI * 0.6); }
       const mk = (geo, mat, sx, sy, sz, px, py, pz, par) => { const m = new THREE.Mesh(geo, mat); m.scale.set(sx, sy, sz); m.position.set(px, py, pz); m.castShadow = true; par.add(m); return m; };
-      // eyes: white with a coloured iris and a highlight; the old dots become the iris so blinking still works
-      const white = toon('#f6f2ea', { rough: 0.3 }), iris = toon(pick(['#5a3a1e', '#3a5a7a', '#4a6a3a', '#2a1a10']), { rough: 0.25 });
-      for (const e of this.eyes) { e.material = white; e.scale.x = 0.026; const ir = new THREE.Mesh(PG.sphLo, iris); ir.scale.set(0.55, 0.62, 0.5); ir.position.z = 0.62; e.add(ir); const pu = new THREE.Mesh(PG.sphLo, M.black); pu.scale.set(0.5, 0.5, 0.4); pu.position.z = 0.5; ir.add(pu); }
-      mk(PG.sph, skinM, 0.03, 0.035, 0.035, 0, 0.11, 0.14, head); // nose
-      for (const s of [-1, 1]) mk(PG.sph, skinM, 0.025, 0.045, 0.03, s * 0.14, 0.12, 0, head); // ears
+      const shine = toon('#ffffff', { rough: 0.2 });
+      for (const e of this.eyes) { e.scale.x = 0.025; e.material = toon('#1e1a18', { rough: 0.15 }); const h = new THREE.Mesh(PG.sphLo, shine); h.scale.set(0.38, 0.3, 0.3); h.position.set(0.3, 0.35, 0.75); e.add(h); }
       // a curved mouth for smiles and frowns
       this.smile = new THREE.Mesh(PEOPLE.arc, toon('#7a2a2a')); this.smile.scale.set(0.028, 0.02, 0.02); this.smile.position.set(0, 0.075, 0.136); this.smile.rotation.z = Math.PI; head.add(this.smile); this.smile.visible = false;
-      // hair: a fringe and side volume for most styles
-      const hairM = this.brows[0].material, style = o.hair || '';
-      if (style !== 'bald' && style !== 'cap' && this.kind !== 'bully') { mk(PG.sph, hairM, 0.13, 0.04, 0.06, 0, 0.245, 0.085, head).rotation.x = 0.4; for (const s of [-1, 1]) mk(PG.sph, hairM, 0.035, 0.1, 0.12, s * 0.135, 0.17, -0.02, head); }
+      const hairM = this.brows[0].material; soft(hairM, 0.42);
+      const cap = head.children.find((m) => m.isMesh && m.geometry === PG.sph && Math.abs(m.scale.x - 0.15) < 0.002 && Math.abs(m.scale.y - 0.13) < 0.002);
+      if (cap) { cap.geometry = PEOPLE.helm; cap.scale.set(0.163, 0.17, 0.166); cap.position.set(0, 0.125, -0.01); cap.rotation.x = -0.7; }
+      this.mouth.geometry = PG.sph; this.mouth.material = toon('#5a1e1e', { rough: 0.4 });
       // clothes: collar, belt, cuffs; sneaker soles
       const hip = this.hip, shirtM = hip.children.find((m) => m.isMesh && Math.abs(m.scale.x - 0.34) < 0.01)?.material;
       if (shirtM) { soft(shirtM, 0.92); const col = toon('#' + shirtM.color.clone().multiplyScalar(1.2).getHexString(), { rough: 0.9 }); for (const s of [-1, 1]) mk(PEOPLE.rbox, col, 0.09, 0.035, 0.05, s * 0.05, 0.43, 0.07, hip).rotation.z = s * -0.5; }
@@ -8113,6 +8109,136 @@ const SEASON = () => { const s = (Store.data && Store.data.settings.season) || '
     sched();
   };
 }
+
+
+// ═════════ v8: CLASS ROLES — clown, nerd, bully, teacher’s pet, sleepy kid — and a director that runs class life ═════════
+Object.assign(CAST, {
+  max: { n: 'Max', d: 'The bully. Flicks paper balls. Secretly scared of Coach.', shirt: '#6a2a2a', pants: '#2a2a33', hair: 'cap', capC: '#2a2a2a', hairC: '#3a2414', skin: '#e8b890', pitch: 0.82,
+    chat: ['What you looking at?', 'Gimme your pudding.', 'This school is lame.', 'I’m not scared of Grimsby.'], fan: ['…okay, that was cool.', 'Not bad, paper boy.', 'Huh. Respect.'] },
+  emma: { n: 'Emma', d: 'Teacher’s pet. Hand always up, apple always ready.', shirt: '#f2a0b8', pants: '#3a3a5a', hair: 'pony', hairC: '#e0c070', skin: '#f6d6c0', pitch: 1.38,
+    chat: ['I finished the extra homework!', 'Miss, I can help!', 'I sharpened everyone’s pencils.', 'Is there a quiz today? I hope so!'], fan: ['That was very well folded!', 'Gold star, Sam!', 'Excellent aerodynamics!'] },
+});
+const ROLES = { jake: 'clown', priya: 'nerd', tom: 'sleepy', max: 'bully', emma: 'pet' };
+const ROLE_IC = { clown: '🤡', nerd: '🤓', sleepy: '💤', bully: '😠', pet: '🍎' };
+for (const [k, list] of Object.entries(CAST_IN)) {
+  const add = (id, at) => { if (!list.includes(id)) list.splice(Math.min(at, list.length), 0, id); };
+  if (['class', 'canteen', 'boss', 'yard', 'gym', 'corridor', 'bus', 'party', 'town', 'art'].includes(k)) add('max', 2);
+  if (['class', 'library', 'canteen', 'boss', 'music', 'lab', 'art', 'party', 'town'].includes(k)) add('emma', 3);
+}
+{
+  // name tags carry the role, and each role gets a prop
+  const _mood = Cast.mood.bind(Cast);
+  Cast.mood = function (p) { _mood(p); const r = ROLES[p.castId]; if (!r) return; const C = CAST[p.castId], m = moodOf(p.castId); const bg = m === 'fan' ? '#ffd6e0' : m === 'grumpy' ? '#c8ccd8' : '#fffaf0';
+    p.tag.material.map = nameTex(`${C.n} ${ROLE_IC[r]}${m === 'fan' ? ' ♥' : m === 'grumpy' ? ' ✖' : ''}`, bg); p.tag.material.needsUpdate = true; const a = p.tag.material.map.userData.aspect || 3; p.tag.scale.set(0.16 * a, 0.16, 1); };
+  const _init = Cast.init.bind(Cast);
+  Cast.init = function (p, id) {
+    p.role = ROLES[id]; _init(p, id);
+    const mk = (geo, mat, sx, sy, sz, px, py, pz, par) => { const m = new THREE.Mesh(geo, mat); m.scale.set(sx, sy, sz); m.position.set(px, py, pz); m.castShadow = true; par.add(m); return m; };
+    if (p.role === 'pet') { mk(PG.sph, toon('#d8282a', { rough: 0.35 }), 0.05, 0.048, 0.05, 0, -0.45, 0.05, p.aL.p); mk(PG.box, toon('#4a3a1a'), 0.008, 0.03, 0.008, 0, -0.39, 0.05, p.aL.p); }
+    if (p.role === 'nerd') { for (let i = 0; i < 3; i++) mk(PEOPLE.rbox || PG.box, toon(['#3d6fb4', '#c94d3a', '#4aa36a'][i]), 0.16, 0.03, 0.12, 0, -0.44 + i * 0.03, 0.08, p.aL.p); }
+    if (p.role === 'bully') { const c = p.head.children.filter((m) => m.isMesh && (m.geometry === PG.box || m.geometry === PEOPLE.rbox) && m.scale.x > 0.15 && m.scale.y < 0.03); for (const v of c) v.position.z = -0.17; mk(PG.sphLo, toon('#f4efe4', { rough: 0.95 }), 0.03, 0.03, 0.03, 0, -0.44, 0.04, p.aR.p); }
+    if (p.role === 'clown') { p.say && setTimeout(() => {}, 0); }
+  };
+  // a temporary pose that the person's own update applies (hand up, rocking, flicking, phone…)
+  const _u = Person.prototype.update;
+  Person.prototype.update = function (dt, t, fl) {
+    if (this.roleOv) { this.roleOv.t -= dt; if (this.roleOv.t > 0 && this.state === 'idle') this.override = typeof this.roleOv.o === 'function' ? this.roleOv.o(t) : this.roleOv.o; else { this.roleOv = null; this.override = null; } }
+    return _u.call(this, dt, t, fl);
+  };
+}
+const POSE = {
+  hand: { aRx: -2.95, aRz: 0.12 }, handL: { aLx: -2.95, aLz: -0.12 }, write: { aRx: -0.95, lean: 0.25 }, phone: { aRx: -0.95, aLx: -0.95, aRz: -0.25, aLz: 0.25, lean: 0.32 },
+  flick: { aRx: -1.7, aRz: -0.35, lean: 0.05 }, rock: (t) => ({ lean: Math.sin(t * 6) * 0.2 }), apple: { aLx: -1.6, aLz: -0.2 }, board: { aRx: -2.5, aRz: 0.3, aLx: -0.3 }, books: { aLx: -1.2, aLz: 0.1 },
+};
+const LESSONS = {
+  hart: [['What’s 7 times 8?', '56!', 'Fifty-sticks!'], ['Capital of France?', 'Paris!', 'P… pancakes?'], ['Who wrote Romeo and Juliet?', 'Shakespeare!', 'Romeo. Obviously.'], ['What’s a noun?', 'A naming word!', 'A noun-thing?'], ['Half of 42?', '21!', 'Page 21?']],
+  petrenko: [['What is H₂O?', 'Water!', 'Wet!'], ['Symbol for gold?', 'Au!', 'Bling!'], ['What gas do plants breathe in?', 'Carbon dioxide!', 'Plant air?']],
+  lieu: [['Beats in a bar of four-four?', 'Four!', 'Yes!'], ['What’s a crescendo?', 'Getting louder!', 'A croissant?']],
+  brandt: [['Players on a basketball team?', 'Five!', 'All of them!'], ['What do we do before running?', 'Stretch!', 'Nap?']],
+  okafor: [['Where do atlases go?', 'Reference shelf!', 'The floor?'], ['What’s the Dewey number for science?', '500!', 'Ten?']],
+  rivera: [['Red plus blue?', 'Purple!', 'Brown. Always brown.'], ['What’s a primary colour?', 'Red, yellow, blue!', 'Beige?']],
+  bell: [['What do we say to the cook?', 'Thank you!', 'More please!']], ellis: [['Which way to the library?', 'Upstairs!', 'Down… up?']],
+  moss: [['How old is the oak?', 'Two hundred years!', 'Older than Grimsby?']], sato: [['Brightest star in Orion?', 'Rigel!', 'The plane?']], gus: [['Where do we sit?', 'In our seats!', 'On the roof?']],
+  def: [['Who can tell me the date?', 'Friday the 14th!', 'Pancake day!'], ['What’s 12 plus 9?', '21!', 'Twelvety-nine!']],
+};
+const CL = {
+  correct: ['Correct!', 'Well done, {n}.', 'Exactly right, {n}.'], clownT: ['Very funny, {n}.', '{n}… no.', 'Detention for that pun, {n}.'],
+  clown: ['*does Ms. Hart* PAGE FORTY-TWO!', 'Why did the pencil get detention? Too sharp!', '*pretends to faint*', 'I’m not late, I’m early for tomorrow!', 'Knock knock! …Paper plane!', '*moonwalks*', 'Teacher, can I go to the toilet? …Forever?'],
+  laugh: ['Ha ha!', 'LOL', 'Jake!', 'Stop it!', '😂'], bullyNerd: ['Nice glasses, nerd.', 'Gimme your pudding.', 'Hey brainiac!', '*flick*'], ow: ['Ow!', 'Hey!', 'Stop it, Max!'],
+  defend: ['Leave her alone, Max!', 'Not cool, Max.', 'Pick on someone your size!', 'Max. Seriously?'], bullyBack: ['Wasn’t me.', 'Whatever.', '…fine.'], bullyT: ['Max! Pick that up.', 'Max. Detention.', 'I saw that, Max!'],
+  pet: ['I tidied the books for you!', 'I brought you an apple!', 'Shall I hand out the sheets?', 'I did the extra homework!'], petT: ['Thank you, Emma.', 'How kind, Emma.', 'Lovely, Emma.'], petMock: ['Teacher’s pet…', 'Suck-up!', '*rolls eyes*'],
+  sleepT: ['Tom! Wake up!', 'Are we boring you, Tom?', 'Tom. TOM.'], sleepTom: ['I’m awake! …zzz', 'Five more minutes…', 'Is it lunch?'],
+  rock: ['Wheee!', '*rocks chair*'], rockT: ['Four legs on the floor!', 'You’ll fall!'], phone: ['*texting*', '*scrolling*'], phoneT: ['Phone. Desk. Now.', 'Is that a phone?'], draw: ['*doodling*', '*drawing a duck*'], drawT: ['That desk is school property!'],
+  group: [['Okay, question one?', 'It’s B.', 'Obviously B.', 'Done!'], ['Who’s writing?', 'Not me.', 'Rock paper scissors?', '…fine, me.'], ['Does this look right?', 'It’s upside down.', 'Oh.'], ['We’re done first!', 'High five!', '✋']],
+};
+const fillN = (s, p) => s.replace('{n}', p && p.castId ? CAST[p.castId].n : '');
+const Class = {
+  attach(L) { if (L._class || !L.people) return; L._class = { cool: rr(2, 4), balls: [], q: [], bcool: 2 }; L.b.dyn.push((dt, t, fl) => this.tick(L, dt, t, fl)); },
+  free(p) { return p instanceof Person && p.state === 'idle' && !p.convo && !(p.bubT > 0) && !p.roleOv && !p.o.boss && !p.vp && !(p.act && p.act.kind === 'sleep' && !p.sleepy); },
+  later(L, s, fn) { L._class.q.push({ t: s, fn }); },
+  say(p, line, col, act = 'talk') { if (!p) return; p.convo && Social.endConvo(p.L, p.convo); p.say(line, Math.max(1.6, 0.8 + line.length * 0.055), col); if (p.state === 'idle') p.act = { kind: act, t: 0, dur: 1.4 }; },
+  pose(p, o, dur) { if (p) p.roleOv = { o, t: dur }; },
+  near(L, p, r, test) { return Social.near(L, p, r, test); },
+  laugh(L, around, n = 3) { const S = L.S || 1, c = around.worldPos(new V3()); let k = 0; for (const q of L.people) { if (k >= n || q === around || !this.free(q) || q.kind !== 'kid') continue; if (q.worldPos(_pw2).distanceTo(c) < 3.2 * S) { k++; this.later(L, rr(0.1, 0.6), () => { q.act = { kind: 'laughS', t: 0, dur: 1.3 }; if (R() < 0.6) q.say(pick(CL.laugh), 1.2, '#fff3c4'); }); } } },
+  ball(L, from, to, onHit) { // a paper ball from a hand to a point (world space)
+    const S = L.S || 1, m = new THREE.Mesh(PG.sphLo, toon('#f4efe4', { rough: 0.95 })); m.scale.setScalar(0.035 * S); m.castShadow = true; L.outer.add(m);
+    from.root.updateMatrixWorld(true); const a = from.aR.hand.getWorldPosition(new V3()); L._class.balls.push({ m, a, b: to.clone(), t: 0, dur: 0.55, onHit });
+    Audio.noiseHit(0.05, 3000, 0.04, 1.5);
+  },
+  tick(L, dt, t, fl) {
+    const C = L._class, S = L.S || 1;
+    for (const it of C.q) { it.t -= dt; if (it.t <= 0 && !it.done) { it.done = true; try { it.fn(); } catch (e) {} } } C.q = C.q.filter((i) => !i.done);
+    for (const b of C.balls) { b.t += dt; const k = clamp(b.t / b.dur, 0, 1); b.m.position.lerpVectors(b.a, b.b, k); b.m.position.y += Math.sin(k * Math.PI) * 0.25 * S; b.m.rotation.x += dt * 12;
+      if (k >= 1 && !b.done) { b.done = true; L.outer.remove(b.m); b.onHit && b.onHit(); } }
+    C.balls = C.balls.filter((b) => !b.done);
+    const ppl = L.people.filter((p) => p instanceof Person), role = (r) => ppl.find((p) => p.role === r && p.state === 'idle'), teacher = ppl.find((p) => p.teacher && this.free(p));
+    // the bully throws paper balls at the plane when it flies close
+    const bully = role('bully'); C.bcool -= dt;
+    if (bully && C.bcool <= 0 && fl && fl.state === 'fly' && !L.passive && bully.worldPos(_pw2).add(v3(0, 1.2 * S, 0)).distanceTo(fl.pos) < 4 * S) {
+      C.bcool = rr(2.5, 4); this.pose(bully, POSE.flick, 0.6); bully.say(pick(['Catch!', 'Incoming!', 'Ha!']), 1.1, '#ffe0d8');
+      const aim = fl.pos.clone().addScaledVector(fl.vel, 0.45);
+      this.ball(L, bully, aim, () => { if (fl.state === 'fly' && fl.pos.distanceTo(aim) < 0.45 * S && fl.knock(new V3().subVectors(fl.pos, bully.worldPos(new V3())).setY(0.3).normalize(), 4, 'Paper-balled by Max!', L.D, L.fxCb, 0.4)) { L.emit({ type: 'ballhit', p: fl.pos.clone() }); bully.say('GOT IT!', 1.2, '#ffe0d8'); } });
+    }
+    C.cool -= dt; if (C.cool > 0) return; C.cool = rr(3.5, 6.5);
+    const kids = ppl.filter((p) => p.kind === 'kid' && this.free(p)); if (kids.length < 2) return;
+    const clown = role('clown'), nerd = role('nerd'), pet = role('pet'), sleepy = ppl.find((p) => p.role === 'sleepy');
+    const opts = [];
+    if (teacher && kids.length >= 3) opts.push('lesson', 'lesson');
+    if (clown && this.free(clown)) opts.push('clown');
+    if (bully && nerd && this.free(bully) && this.free(nerd) && bully.worldPos(_pw2).distanceTo(nerd.worldPos(new V3())) < 7 * S) opts.push('bully');
+    if (pet && this.free(pet) && teacher) opts.push('pet');
+    if (sleepy && teacher && sleepy.act && sleepy.act.kind === 'sleep') opts.push('sleep');
+    opts.push('mischief', 'group');
+    const ev = pick(opts); stat('classMoments');
+    if (ev === 'lesson') {
+      const Q = pick(LESSONS[teacher.teacher] || LESSONS.def); this.say(teacher, Q[0], '#e4ecff', 'gesture'); if (L.def && L.def.id === 'class') this.pose(teacher, POSE.board, 1.2);
+      const hands = kids.filter((k) => k.pose === 'sit' || k.pose === 'stand').sort(() => R() - 0.5).slice(0, rr(1, 3) | 0);
+      if (nerd && this.free(nerd) && !hands.includes(nerd)) hands.unshift(nerd); if (pet && this.free(pet) && !hands.includes(pet) && R() < 0.6) hands.push(pet);
+      hands.forEach((k, i) => this.later(L, 0.9 + i * 0.25, () => { this.pose(k, R() < 0.5 ? POSE.hand : POSE.handL, 2.4); if (k.role === 'nerd' || k.role === 'pet') k.say(pick(['Me! Me!', 'Ooh! Ooh!', 'Miss!']), 1.2); }));
+      const pickClown = clown && this.free(clown) && R() < 0.45, who = pickClown ? clown : hands[0] || pick(kids);
+      this.later(L, 2.6, () => { if (pickClown) { this.say(clown, Q[2], '#fff3c4', 'gesture'); this.later(L, 1.3, () => this.laugh(L, clown, 4)); this.later(L, 2.4, () => this.say(teacher, fillN(pick(CL.clownT), clown), '#e4ecff', 'gesture')); }
+        else { this.say(who, Q[1]); this.later(L, 1.4, () => this.say(teacher, fillN(pick(CL.correct), who), '#e4ecff', 'nod')); if (who.role === 'nerd' && bully && R() < 0.5) this.later(L, 2.6, () => this.say(bully, 'Nerd.', '#ffe0d8')); } });
+    }
+    if (ev === 'clown') { this.say(clown, pick(CL.clown), '#fff3c4', 'gesture'); this.pose(clown, (tt) => ({ aLx: -2.4 + Math.sin(tt * 9) * 0.4, aRx: -2.4 - Math.sin(tt * 9) * 0.4, sway: Math.sin(tt * 5) * 0.15 }), 1.6); this.later(L, 1.0, () => this.laugh(L, clown, 4)); if (teacher) this.later(L, 2.6, () => this.say(teacher, fillN(pick(CL.clownT), clown), '#e4ecff', 'gesture')); }
+    if (ev === 'bully') { this.say(bully, pick(CL.bullyNerd), '#ffe0d8'); this.pose(bully, POSE.flick, 0.7); nerd.root.updateMatrixWorld(true);
+      this.later(L, 0.4, () => this.ball(L, bully, nerd.head.getWorldPosition(new V3()), () => { if (nerd.state === 'idle') { nerd.startReact('startle', fl, true); } nerd.say(pick(CL.ow), 1.4, '#ffe0d8'); }));
+      const def = this.near(L, nerd, 4, (q) => q !== bully && q.kind === 'kid' && this.free(q)) ; if (def) this.later(L, 1.8, () => this.say(def, pick(CL.defend), '#ffffff', 'gesture'));
+      if (teacher) this.later(L, 2.8, () => { this.say(teacher, pick(CL.bullyT), '#e4ecff', 'gesture'); this.later(L, 1.3, () => this.say(bully, pick(CL.bullyBack), '#ffe0d8', 'shrug')); }); else this.later(L, 2.8, () => this.say(bully, pick(CL.bullyBack), '#ffe0d8', 'shrug')); }
+    if (ev === 'pet') { this.pose(pet, POSE.apple, 2); this.say(pet, pick(CL.pet), '#ffe6ee'); this.later(L, 1.6, () => this.say(teacher, pick(CL.petT), '#e4ecff', 'nod')); const m = clown && this.free(clown) ? clown : bully && this.free(bully) ? bully : null; if (m) this.later(L, 2.8, () => this.say(m, pick(CL.petMock), '#fff3c4')); }
+    if (ev === 'sleep') { this.say(teacher, pick(CL.sleepT), '#e4ecff', 'gesture'); this.later(L, 1.2, () => { sleepy.act = null; sleepy.cool = 0; sleepy.startReact('startle', fl, true); sleepy.say(pick(CL.sleepTom), 1.6); }); this.later(L, 2.2, () => this.laugh(L, sleepy, 2)); }
+    if (ev === 'mischief') { const k = pick(kids); const sit = k.pose === 'sit'; const kind = pick(sit ? ['rock', 'phone', 'draw'] : ['phone']);
+      this.pose(k, kind === 'rock' ? POSE.rock : kind === 'phone' ? POSE.phone : POSE.write, 3); k.say(pick(CL[kind]), 1.6);
+      if (kind === 'phone') { const ph = new THREE.Mesh(PEOPLE.rbox || PG.box, toon('#1e1e24', { rough: 0.3 })); ph.scale.set(0.05, 0.09, 0.012); ph.position.set(0, -0.45, 0.04); k.aR.p.add(ph); this.later(L, 3, () => k.aR.p.remove(ph)); }
+      if (teacher && teacher.worldPos(_pw2).distanceTo(k.worldPos(new V3())) < 8 * S) this.later(L, 1.6, () => this.say(teacher, pick(CL[kind + 'T']), '#e4ecff', 'gesture')); }
+    if (ev === 'group') { const a = pick(kids), b2 = this.near(L, a, 2.2, (q) => q !== a && q.kind === 'kid' && this.free(q)); if (!b2) return; const lines = pick(CL.group);
+      Social.face(a, b2); Social.face(b2, a); lines.forEach((ln, i) => this.later(L, i * 1.4, () => { const sp = i % 2 ? b2 : a; Social.face(a, b2); Social.face(b2, a); this.say(sp, ln, '#f4f8ff', i === lines.length - 1 ? 'gesture' : 'talk'); }));
+      this.later(L, lines.length * 1.4, () => { a.act = { kind: 'nod', t: 0, dur: 1 }; b2.act = { kind: 'nod', t: 0, dur: 1 }; }); }
+  },
+};
+{ const _load = Game.loadLevel; Game.loadLevel = function (i, attract) { const r = _load.call(this, i, attract); Class.attach(this.level); return r; }; }
+ACHS.push({ id: 'classAct', n: 'Class act', d: 'Watch 25 moments of class life', k: 'classMoments', v: 25, ic: '🎭' });
+JOKES.max = { n: 'Max’s soft side', parts: ['…what? I’m not saying anything.', 'Fine. I have a hamster.', 'His name is Sir Fluffington.', 'He likes paper planes too.', 'Don’t tell anyone.', 'I mean it.', '…he did a flip yesterday.', 'Okay, your plane is pretty cool.'] };
+JOKES.emma = { n: 'Emma’s gold stars', parts: ['Gold star number 100!', 'Ms. Hart says I’m “a lot”.', 'I made her a card.', 'I made Grimsby a card too.', 'He didn’t say thank you.', 'I’m making him another one.', 'With glitter.', 'Gold star number 150!'] };
 
 boot();
 
