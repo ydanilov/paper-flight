@@ -8,7 +8,7 @@ You are continuing **Paper Flight**, a 3D paper-airplane game built with Claude 
 Friday, 3:14 pm. Sam writes "Mia — meet me at the old oak after the bell?" but Mia has already slipped out. You fold the note into a paper plane and fly it across the school, room by room, before the last bell at 3:30. Each room is a level; each level is a short sequence of stages (rings → pages/stars → landing or exit).
 
 - **Tech:** one self-contained HTML file, three.js **0.160.0** from jsDelivr via an importmap, Google Fonts (Gochi Hand, Fredoka). No build step, no other dependencies. ~600 KB, ~6,800 lines.
-- **Runs as:** a claude.ai Artifact (primary) — https://claude.ai/artifact/ASWMKtcDZLsPkDhT4NVWuQ — and as a plain page (`index.html`).
+- **Runs as:** a claude.ai Artifact (primary) — https://claude.ai/artifact/27TqcQ9ocr6Et7eq8vMzuG — and as a plain page (`index.html`).
 - **Saves:** `localStorage['paperflight.save.v1']`, ghosts in `localStorage['paperflight.ghost.<levelId>']`. Saves are per-origin, so the artifact must always be republished to **the same URL** or players lose progress.
 
 ## 2. Files in this repo
@@ -107,7 +107,7 @@ node run.js 0,9,12             # selected level indexes
 - Last known state: all 16 levels completable, no console errors.
 
 ## 7. Publishing
-- Publish `src.html` with the Artifact tool to `https://claude.ai/artifact/ASWMKtcDZLsPkDhT4NVWuQ` (read it first from a new conversation — the tool requires a read before updating). Same URL every time.
+- Publish `src.html` with the Artifact tool to `https://claude.ai/artifact/27TqcQ9ocr6Et7eq8vMzuG` (read it first from a new conversation — the tool requires a read before updating). Same URL every time.
 - The published file must not include doctype/html/head/body tags.
 - If the session is attached to the claude.ai project "Games", also update the project doc `claude/paper-flight.md` with what changed.
 
