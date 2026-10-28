@@ -1,14 +1,14 @@
 # Paper Flight — guide for Claude
 
-You are continuing **Paper Flight**, a 3D paper-airplane game built with Claude for **Yura (GitHub: ydanilov)**. This file is everything you need: what the game is today, how the code is organised, how to change and test it safely, how to publish it, how to work with Yura, and the style to keep.
+You are continuing **Paper Flight**, a 3D paper-airplane game **by Diego Danylov** (Yura's son), built with Claude. You work with **Yura (GitHub: ydanilov)**. Credit the game to Diego Danylov everywhere (title byline, ending credits, meta author, README). This file is everything you need: what the game is today, how the code is organised, how to change and test it safely, how to publish it, how to work with Yura, and the style to keep.
 
 ---
 
 ## 1. The game in one minute
 Friday, 3:14 pm. Sam writes "Mia — meet me at the old oak after the bell?" but Mia has already slipped out. You fold the note into a paper plane and fly it across the school, room by room, before the last bell at 3:30. Each room is a level; each level is a short sequence of stages (rings → pages/stars → landing or exit).
 
-- **Tech:** one self-contained HTML file, three.js **0.160.0** from jsDelivr via an importmap, Google Fonts (Gochi Hand, Fredoka). No build step, no other dependencies. ~600 KB, ~6,800 lines.
-- **Runs as:** a claude.ai Artifact (primary) — https://claude.ai/artifact/27TqcQ9ocr6Et7eq8vMzuG — and as a plain page (`index.html`).
+- **Tech:** one HTML file, three.js **0.160.0** from jsDelivr via an importmap, Google Fonts (Gochi Hand, Fredoka), plus five storybook illustrations in `assets/`. No build step. ~830 KB, ~8,900 lines.
+- **Runs as:** a claude.ai Artifact — https://claude.ai/artifact/27TqcQ9ocr6Et7eq8vMzuG — and on **Vercel** at https://game-paper-flight.vercel.app (project `game-paper-flight`, auto-deploys every push to `main`, serves `index.html` from the repo root). Showcase: https://diego-games.vercel.app. (The project doc also mentions https://claude.ai/artifact/ASWMKtcDZLsPkDhT4NVWuQ, which couldn't be read; the URL above is the one to publish to.)
 - **Saves:** `localStorage['paperflight.save.v1']`, ghosts in `localStorage['paperflight.ghost.<levelId>']`. Saves are per-origin, so the artifact must always be republished to **the same URL** or players lose progress.
 
 ## 2. Files in this repo
@@ -16,7 +16,9 @@ Friday, 3:14 pm. Sam writes "Mia — meet me at the old oak after the bell?" but
 |---|---|
 | `src.html` | **The source of truth.** Artifact body: starts at `<title>`, no doctype/html/head/body (the Artifact tool adds the skeleton). Edit this. |
 | `index.html` | Same content wrapped as a full HTML page, for opening locally / GitHub Pages. Regenerate with `tools/build-index.sh`; never edit by hand. |
+| `assets/` | Five 1024×572 WebP illustrations (hand-drawn, coloured pencil + watercolour on notebook paper): `pf_title` (title backdrop), `pf_map` (level select / course maker), `pf_grimsby` (boss intro, empty right side for text), `pf_diary` (results + diary pages + notebook), `pf_ending` (ending + credits). Referenced by **relative** paths (`assets/pf_title.webp`) so they work on Vercel, as artifact supporting files and in `tools/test.html`. |
 | `tools/` | Headless test harness (Playwright) + `package.json`. See §6. |
+| `README.md` | Public description, play links, controls, tests. |
 | `CLAUDE.md` | This guide. Update it when you add systems. |
 
 ## 3. Everything the game has right now
@@ -50,7 +52,7 @@ Skins unlock by stars and achievements; a **Decorator** (Hangar → ✎) adds st
 Difficulty (Easy/Normal/Hardcore + Practice profile) · power-ups (Tailwind, Magnet, Shield) · skim bonus (fly close to surfaces) · **ghost** of best run with splits and top 5 · ~45 achievements + stats in **Sam's Notebook** (also lists Overheard lines and jokes) · Daily flight with a twist (`MODS`) · challenge modes on the story card (Normal / **Time attack** / **Iron paper**) · Marathon · 2-player split screen (race/co-op) · keyboard, mouse, touch, gamepad · per-level music themes (`THEMES`) · bloom post effect · settings for quality, camera, sensitivity, audio, etc.
 
 ### Save data (`Store.data`)
-settings, unlocked, best, skin, plane, stats, ach, heard, rel, quests, mia, jokes, top, deco, courses, daily, chal, cuts, marathonBest, mp, seenIntro, choices, diary (the last two are created lazily by `CH()`/`DI()`). **When you add a field, default it on load** — old saves must keep working. Never rename the save key.
+settings, unlocked, best, skin, plane, stats, ach, heard, rel, quests, mia, jokes, top, deco, courses, daily, chal, cuts, marathonBest, mp, seenIntro, choices, diary (the last two are created lazily by `CH()`/`DI()`), seen (`{lv, sk, ach}` — what the player has already looked at, for NEW badges; created by `SEEN()`, which marks everything already unlocked as seen for old saves). **When you add a field, default it on load** — old saves must keep working. Never rename the save key.
 
 ## 4. Code map (`src.html`)
 Order: CSS → HTML overlays (title, menus/panels, HUD, touch controls) → one `<script type="module">`:
@@ -61,6 +63,13 @@ Order: CSS → HTML overlays (title, menus/panels, HUD, touch controls) → one 
 5. `Person` and helpers `kid()`, `seated()`, `adult()`, `sprayer()` (~3371); boss.
 6. `Game` (~4273) — title → story card → begin → play → results; HUD; `Game.mode`; multiplayer.
 7. **Feature blocks appended before the final `boot();`** (~6767): systems (achievements, ghost, daily, notebook, skim) → bonus levels art/roof → Social/Overheard → cast/quests/Mia/themes/splits → decorator/course maker/bus → chatter/jokes/teachers → town/cutscenes/challenges/marathon.
+8. **v10 block (last before `boot();`)** — storybook art + menu polish + phones:
+   - `ART` (paths) and `Art` (`window.__art`): a fixed `#art` layer between the canvas and `#screens`. `Art.pick()` maps `UI.state` → picture (title/confirm/settings-from-title/2 players → `title`; levels/courses/cnew → `map`; `bossintro` and the boss story card → `grimsby`; results/notebook → `diary`; ending → `ending`). `UI.show` is wrapped to call `Art.sync()`, which also tags `#scr` with `art-<name>` for per-picture CSS. Images load lazily (`Art.prefetch()` on idle from the title) with a shimmer + “unfolding the picture…” while loading; on error the body gets `art-fail-<name>` and the 3D scene stays. `body.art-ok-<name>` gates CSS that only makes sense with the real picture (e.g. right-aligned title menu). While a picture fully covers the screen, `Game.render` skips the 3D frame.
+   - `Game.bossIntro(i)`: a card over `pf_grimsby` before the Main Hall story card (text on the right; on phones a paper card at the bottom). `acts.bossGo` continues.
+   - Ending: the old ending card plus a **credits roll** (`.roll`), over `pf_ending`.
+   - Menu states: hover/pressed (`.press` flash on activate)/keyboard focus ring (`body.kbnav` — set by arrows/Tab/gamepad, cleared by mouse/touch; real DOM focus follows `UI.focus`)/disabled/locked (`.lockn` requirement on level cards, 🔒 on paper and stickers)/equipped badge/NEW badges (`.newb`, `.newdot`)/empty states (`.empty`, `.empty-ink`)/screen fade-in (skipped when re-rendering the same screen). All motion is off under `prefers-reduced-motion`.
+   - Phones: safe-area insets on every edge, `pointer: coarse` → 44 px minimum targets, landscape phones get a two-column title menu, touch flight controls moved to the bottom-right with the meters bottom-left. `#rotate` (`window.__rot`) asks to turn a portrait phone sideways during play only (menus work upright); “Fly upright anyway” sets `__rot.allow`. `resize()` caps pixel ratio at 1.25 on small screens.
+   - The v10 `<style>` is appended to `body` (after the game's own style element) so equal-specificity rules override.
 - Debug/test handle: `window.__game = { renderer, Game, Store, LEVELS, Input, scene, camera, THREE, DIFF, PRACTICE }`.
 - Line numbers drift; search by name.
 
@@ -104,10 +113,17 @@ node run.js 0,9,12             # selected level indexes
 - Other scripts are focused probes (social sim, specials, menus/phone layout at 390 px, multiplayer, decorator/course maker, challenge modes) — copy them as patterns. Look at screenshots they save to judge visuals.
 - `node v7.js [indexes]` screenshots the new levels along their route (and the boss at phase 4); `node v7ui.js [w h]` checks hangar, a cutscene choice, the story card, results diary and notebook (`390 844` for phone); `node par.js` measures each route against its gold par.
 - The sandbox's software GL runs game time ~10× slower than wall time: cutscenes take minutes unless a probe fast-forwards `Game.cut.t` (v7ui.js does). Run all 16 levels in two batches (`0,…,8` then `9,…,15`) to stay under the 10-minute command limit.
-- Last known state: all 16 levels completable, no console errors.
+- `bash build-test.sh` also copies `../assets` into `tools/assets` so the test page loads the pictures.
+- `node menus.js [desktop|mobile]` walks every menu and state (fresh save → empty states; progress → NEW badges, locked, equipped; keyboard focus ring; pressed; hangar, decorator, settings, confirm, daily, 2 players, boss intro, cutscene choice, story, results, pause, pause settings, notebook + diary, ending), screenshots 1440×900 and 390×844 into `tools/shots/`, asserts that all 5 images load, the focus ring is visible, the right picture is behind each screen and that a failed image falls back. ~8 min for desktop, ~4 min mobile in software GL — run them separately.
+- `node mobile.js` checks 390×844, 844×390 and 768×1024 (touch): no horizontal overflow in 7 menus, touch targets ≥ 44 px, touch controls vs HUD overlap during the boss level (with hints, toasts, Overheard, quest, split and power-ups all showing), and the rotate prompt (portrait only, dismissable). ~4.5 min. Screens: `tools/shots/m_*.png`.
+- **Read the screenshots** after any UI change — tune crops (`object-position` per picture and orientation in the v10 CSS) and overlays by eye.
+- `node daily.js` is the old daily-flight/menu probe (was `menus.js`).
+- `bash runall.sh` runs all 16 levels in small batches (one level is ~1–2 min in software GL; the Town much longer) — start it in the background. It kills stray browsers between batches with `pkill -f '[p]w-browsers/chrom'` (a bare `pkill -f chromium` matches and kills the calling shell itself).
+- Last known state: all 16 levels completable, no console errors; menus.js and mobile.js pass.
 
 ## 7. Publishing
-- Publish `src.html` with the Artifact tool to `https://claude.ai/artifact/27TqcQ9ocr6Et7eq8vMzuG` (read it first from a new conversation — the tool requires a read before updating). Same URL every time.
+- **Vercel:** pushing to `main` deploys https://game-paper-flight.vercel.app automatically (it serves `index.html` + `assets/`). So: regenerate `index.html`, run tests, commit, push.
+- **Artifact:** publish `src.html` with the Artifact tool to `https://claude.ai/artifact/27TqcQ9ocr6Et7eq8vMzuG` (read it first from a new conversation — the tool requires a read before updating). Same URL every time. Pass the pictures as supporting files with a `files` map so the relative paths resolve: `files: {"assets/pf_title.webp": "assets/pf_title.webp", "assets/pf_map.webp": "assets/pf_map.webp", "assets/pf_grimsby.webp": "assets/pf_grimsby.webp", "assets/pf_diary.webp": "assets/pf_diary.webp", "assets/pf_ending.webp": "assets/pf_ending.webp"}`.
 - The published file must not include doctype/html/head/body tags.
 - If the session is attached to the claude.ai project "Games", also update the project doc `claude/paper-flight.md` with what changed.
 
@@ -125,7 +141,8 @@ node run.js 0,9,12             # selected level indexes
 - **Fonts:** Gochi Hand (`--f-hand`) for anything "written" — logo, story cards, notes, headings, bubbles; Fredoka (`--f-ui`) for buttons and numbers.
 - Slightly rotated hand-made elements (logo −3°), soft deep shadows, no flat corporate UI. One warm look by design — no theme switcher.
 - 3D world: low-poly, warm afternoon light through windows, soft colours, readable silhouettes; people are simple chunky figures with big heads and expressive acts. Golden-hour mood; night levels use moon/blue with warm window light.
-- Must work on phones (390 px wide, touch controls, safe areas) and stay smooth on Low quality.
+- Must work on phones (390×844 portrait for menus, 844×390 landscape for flight, 768×1024 tablet), safe areas, 44 px touch targets, and stay smooth on Low quality.
+- Illustrations: storybook style — coloured pencil + watercolour on lined notebook paper, no text in the picture. Keep text off faces: title menu sits right of Sam, boss text on the empty right side, ending card in the sky band.
 
 ### Writing
 - Story cards: 4 short lines, present tense, a little wry, kid's-eye view ("One sheet of paper. One good fold. Throw it."). Outros are one line ending with a small joke ("Nobody saw a thing. Probably.").
@@ -136,7 +153,7 @@ node run.js 0,9,12             # selected level indexes
 ### Code
 - Plain modern JS in one module, no frameworks. Short names in hot code (`L` level, `b` builder, `fl` flyer). Comments explain intent, not mechanics.
 - Self-contained feature blocks; wrappers over edits; guards so a missing table entry never crashes a level.
-- No external assets: textures, sounds and music are procedural.
+- Textures, sounds and music stay procedural. The only external images are the five illustrations in `assets/` (menus only, never in the 3D world); new ones go there as 1024×572 WebP, referenced relatively, loaded through `Art`, with a fallback.
 
 ## 10. Ideas to offer next
 Ghost races shared by code · photo mode · voiced lines (TTS) · accessibility (colour-blind, reduced motion, one-button mode) · a snow day level · a school-fair level · a second boss (the vice principal) · Mia’s point of view chapter · choices that branch which rooms you visit · a pet you can befriend and carry notes · Rosa’s school paper as an in-game newspaper of your runs · tuning par times with real play data (current pars are evened out by route length only).

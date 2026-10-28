@@ -3,3 +3,5 @@ tools/package-lock.json
 tools/test.html
 tools/*.png
 src.backup.html
+tools/shots/
+tools/assets/

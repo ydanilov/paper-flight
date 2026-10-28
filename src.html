@@ -1,5 +1,6 @@
 <title>Paper Flight</title>
-<meta name="description" content="Fly a paper airplane through school to deliver a note before the last bell.">
+<meta name="description" content="Fly a paper airplane through school to deliver a note before the last bell. A game by Diego Danylov.">
+<meta name="author" content="Diego Danylov">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Gochi+Hand&family=Fredoka:wght@400;500;600;700&display=swap">
@@ -933,7 +934,8 @@ postScene.add(new THREE.Mesh(new THREE.PlaneGeometry(2, 2), post));
 
 function resize() {
   const q = QUAL();
-  const maxPR = q === 'low' ? 0.75 : q === 'med' ? 1.0 : 1.5;
+  const small = Math.min(window.innerWidth, window.innerHeight) < 560; // phones: fewer pixels, cooler battery
+  const maxPR = q === 'low' ? 0.75 : q === 'med' ? 1.0 : small ? 1.25 : 1.5;
   pixelRatio = Math.min(window.devicePixelRatio || 1, maxPR) * (typeof DRS !== 'undefined' ? DRS.scale : 1);
   const w = Math.max(2, Math.floor(window.innerWidth * pixelRatio)), h = Math.max(2, Math.floor(window.innerHeight * pixelRatio));
   renderer.setPixelRatio(1);
@@ -4334,7 +4336,7 @@ const Game = {
     if (!this.attract || this.li !== 0) this.loadLevel(0, true);
     const cont = Store.data.unlocked > 1 && Store.data.unlocked <= LEVELS.length;
     UI.show(`<div class="title-wrap">
-      <div class="logo">Paper Flight<small>a note for Mia</small></div>
+      <div class="logo">Paper Flight<small>a note for Mia</small></div><div class="byline">a game by Diego Danylov</div>
       <div class="menu">
         <button class="btn" data-nav data-act="play" data-def="1">${cont ? 'Continue' : 'Start the story'} <span class="k">${cont ? LEVELS[Store.data.unlocked - 1].name : 'Classroom 5B'}</span></button>
         ${Store.data.unlocked > 1 || Store.totalStars() ? '<button class="btn" data-nav data-act="newGame">New game <span class="k">start over from level 1</span></button>' : ''}
@@ -8449,6 +8451,476 @@ Object.assign(SECRETS, {
     if (theme === 'den') { b.aabb(-2.3, RY, 1.2, -0.8, RY + 0.4, 2.3, toon('#e07a9a')); for (let i = 0; i < 8; i++) { const m = new THREE.Mesh(planeGeometry(pick(['dart', 'glider', 'swallow'])), toon(pick(['#f4f1ea', '#f2c8c8', '#cfe3f2']), { side: THREE.DoubleSide })); m.scale.setScalar(1.6); m.position.set(rr(-2, 2) * (L.S || 1), (RY + 2.5 + rr(-0.2, 0.2)) * (L.S || 1), rr(0.5, 2.2) * (L.S || 1)); m.rotation.y = rr(0, TAU); L.outer.add(m); } }
   };
   for (const id of ['corridor', 'library', 'lab', 'music', 'art', 'party', 'rain']) { const d = LEVELS.find((q) => q.id === id), D = SECRETS[id]; const ob = d.build; d.build = function (L, b) { ob.call(this, L, b); if (L.def.id !== id || !SEC_BUILD) return; SEC_BUILD(L, b, id, D); extra(L, b, D.theme); }; }
+}
+
+
+// ═════════ v10: STORYBOOK ART, MENU POLISH, PHONES ═════════
+// Five hand-drawn illustrations live in assets/ next to the page (relative paths, so they work on Vercel, as
+// artifact supporting files and in tools/test.html). They load lazily; if one fails the menus fall back to the 3D scene.
+const ART = { title: 'assets/pf_title.webp', map: 'assets/pf_map.webp', grimsby: 'assets/pf_grimsby.webp', diary: 'assets/pf_diary.webp', ending: 'assets/pf_ending.webp' };
+{
+  const st = document.createElement('style');
+  st.textContent = `
+/* ── art layer: sits between the 3D canvas and the menu screens ── */
+#art { position: fixed; inset: 0; pointer-events: none; opacity: 0; transition: opacity 0.45s ease; background: radial-gradient(ellipse at 40% 40%, #5a3f28, #1a120c 75%); overflow: hidden; }
+#art.on { opacity: 1; }
+#art img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: 50% 50%; opacity: 0; transition: opacity 0.6s ease; transform: scale(1.02); }
+#art img.on { opacity: 1; }
+#art img.drift.on { animation: artDrift 38s ease-in-out infinite alternate; }
+@keyframes artDrift { from { transform: scale(1.05) translate(-1.2%, -0.6%); } to { transform: scale(1.11) translate(1.2%, 0.8%); } }
+#art .vig { position: absolute; inset: 0; background: radial-gradient(ellipse at 50% 42%, rgba(20, 12, 6, 0) 50%, rgba(20, 12, 6, 0.6) 100%); }
+#art .grain { position: absolute; inset: 0; opacity: 0.06; background: repeating-linear-gradient(0deg, #000 0 1px, transparent 1px 3px); mix-blend-mode: multiply; }
+#art .aload { position: absolute; right: max(18px, env(safe-area-inset-right, 0px)); bottom: max(16px, env(safe-area-inset-bottom, 0px)); font-family: var(--f-hand); font-size: 20px; color: var(--paper); opacity: 0; transition: opacity 0.3s; text-shadow: 0 2px 4px rgba(0, 0, 0, 0.6); display: flex; gap: 8px; align-items: center; }
+#art.loading .aload { opacity: 0.9; }
+#art.loading::before { content: ""; position: absolute; inset: 0; background: linear-gradient(100deg, transparent 30%, rgba(255, 230, 190, 0.08) 50%, transparent 70%) 0 0 / 200% 100%; animation: artShim 1.6s linear infinite; }
+@keyframes artShim { to { background-position: -200% 0; } }
+#art .aload .plane { display: inline-block; animation: fly 1.4s ease-in-out infinite; }
+@media (orientation: portrait) {
+  #art img[data-a="title"] { object-position: 38% 50%; } #art img[data-a="grimsby"] { object-position: 24% 50%; }
+  #art img[data-a="map"] { object-position: 50% 50%; } #art img[data-a="ending"] { object-position: 50% 40%; } #art img[data-a="diary"] { object-position: 50% 50%; }
+}
+/* screens over art: keep the picture crisp (no blur), only a soft tint */
+#scr.art-title.scrim { background: linear-gradient(90deg, rgba(26, 16, 8, 0.78) 0%, rgba(26, 16, 8, 0.42) 42%, rgba(26, 16, 8, 0) 75%); }
+#scr.art-title.scrim-full { background: rgba(26, 16, 8, 0.55); backdrop-filter: none; -webkit-backdrop-filter: none; }
+#scr.art-map.scrim-full { background: linear-gradient(180deg, rgba(30, 20, 12, 0.5), rgba(30, 20, 12, 0.18) 30%, rgba(30, 20, 12, 0.25)); backdrop-filter: none; -webkit-backdrop-filter: none; }
+#scr.art-diary.scrim-full { background: rgba(30, 20, 12, 0.32); backdrop-filter: none; -webkit-backdrop-filter: none; }
+#scr.art-map .panel-head h2, #scr.art-diary .panel-head h2 { text-shadow: 0 3px 0 rgba(0, 0, 0, 0.45), 0 0 18px rgba(0, 0, 0, 0.55); }
+#scr.art-map .panel-head .sub, #scr.art-diary .panel-head .sub { background: rgba(26, 16, 8, 0.62); padding: 2px 10px; border-radius: 8px; }
+/* boss intro: Grimsby on the left of the picture, words on the right */
+#scr.art-grimsby { justify-content: flex-end; align-items: center; background: linear-gradient(90deg, rgba(20, 12, 6, 0) 30%, rgba(20, 12, 6, 0.7) 75%); backdrop-filter: none; -webkit-backdrop-filter: none; }
+#scr.art-grimsby .story { margin-right: clamp(0px, 4vw, 64px); width: min(520px, 100%); }
+.bossintro { width: min(460px, 100%); margin-right: clamp(0px, 4vw, 64px); color: var(--paper); display: flex; flex-direction: column; gap: 12px; }
+.bossintro .bi-k { font-size: 14px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--sun-2); }
+.bossintro h2 { font-family: var(--f-hand); font-size: clamp(44px, 7vw, 76px); line-height: 0.9; transform: rotate(-2deg); text-shadow: 0 4px 0 rgba(0, 0, 0, 0.4), 0 10px 30px rgba(0, 0, 0, 0.5); }
+.bossintro p { margin: 0; font-family: var(--f-hand); font-size: clamp(20px, 2.6vw, 26px); line-height: 1.2; text-shadow: 0 2px 6px rgba(0, 0, 0, 0.7); }
+.bossintro ul { margin: 0; padding: 12px 16px 12px 34px; background: rgba(248, 241, 223, 0.95); color: var(--ink); border: 2px solid var(--ink); border-radius: 4px 12px 6px 12px; box-shadow: 3px 4px 0 rgba(0, 0, 0, 0.4); transform: rotate(0.8deg); font-size: 15px; line-height: 1.5; }
+.bossintro p.q { color: var(--sun-2); }
+.byline { margin-top: -14px; font-family: var(--f-hand); font-size: 18px; color: var(--paper); opacity: 0.9; text-shadow: 0 2px 4px rgba(0, 0, 0, 0.7); transform: rotate(-2deg); }
+@media (max-height: 520px) and (orientation: landscape) { .title-wrap .byline { display: none; } }
+.bossintro .bi-b { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+@media (orientation: portrait), (max-width: 640px) {
+  #scr.art-grimsby { justify-content: center; align-items: flex-end; background: linear-gradient(180deg, rgba(20, 12, 6, 0) 25%, rgba(20, 12, 6, 0.82) 62%); }
+  .bossintro, #scr.art-grimsby .story { margin-right: 0; }
+}
+/* ending: the illustration, a caption card and a credits roll */
+#scr.art-ending { align-items: flex-end; justify-content: flex-start; background: linear-gradient(0deg, rgba(20, 12, 6, 0.55), rgba(20, 12, 6, 0) 55%); backdrop-filter: none; -webkit-backdrop-filter: none; overflow-y: auto; }
+#scr.art-ending .story { width: min(520px, 100%); margin-left: clamp(0px, 3vw, 48px); background-color: rgba(248, 241, 223, 0.95); }
+#scr.art-ending .story p { font-size: clamp(19px, 2.4vw, 24px); }
+.roll { position: absolute; z-index: 1; right: max(28px, env(safe-area-inset-right, 0px)); top: 7vh; bottom: 7vh; width: min(340px, 32vw); overflow: hidden; pointer-events: none; -webkit-mask-image: linear-gradient(transparent, #000 14%, #000 86%, transparent); mask-image: linear-gradient(transparent, #000 14%, #000 86%, transparent); }
+.roll-in { position: absolute; left: 0; right: 0; top: 100%; text-align: center; color: var(--paper); text-shadow: 0 2px 6px rgba(0, 0, 0, 0.85); animation: rollUp 48s linear 0.4s infinite; }
+@keyframes rollUp { to { top: 0; transform: translateY(-100%); } }
+.roll-in h4 { margin: 22px 0 4px; font-family: var(--f-ui); font-weight: 600; font-size: 12px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--sun-2); }
+.roll-in div { font-family: var(--f-hand); font-size: 22px; line-height: 1.3; }
+.roll-in .big { font-size: 40px; line-height: 1; margin-bottom: 8px; }
+@media (max-width: 760px), (orientation: portrait) {
+  .roll { left: 16px; right: 16px; width: auto; top: max(14px, env(safe-area-inset-top, 0px)); bottom: auto; height: 30vh; }
+  #scr.art-ending .story { margin-left: 0; }
+}
+@media (max-height: 500px) and (orientation: landscape) { #scr.art-ending .story { padding: 16px 18px 14px 58px; } #scr.art-ending .story p { font-size: 17px; line-height: 23px; } #scr.art-ending .story .ttl { font-size: 30px; } .roll { top: 4vh; bottom: 4vh; } }
+/* Sam's diary in the notebook gets the diary picture as its page */
+body.art-ok-diary .paper.ovhs.diarysec { background-image: linear-gradient(rgba(248, 241, 223, 0.86), rgba(248, 241, 223, 0.9)), url(${ART.diary}); background-size: cover; background-position: center; }
+.res .dpage { background: rgba(255, 250, 235, 0.6); border-radius: 4px; padding: 6px 8px; }
+body.art-ok-diary .res .dpage { background-image: linear-gradient(rgba(255, 250, 235, 0.82), rgba(255, 250, 235, 0.86)), url(${ART.diary}); background-size: cover; background-position: center; }
+
+/* ── screen transitions ── */
+.screen { animation: scrIn 0.26s ease both; }
+.screen.same { animation: none; }
+@keyframes scrIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+
+/* ── button states: default, hover, pressed, keyboard focus, disabled, selected ── */
+.btn, .card, .sw, .sw2, #edBar button { -webkit-tap-highlight-color: transparent; }
+.btn:active, .btn.press { transform: translate(2px, 3px) rotate(0deg) !important; box-shadow: 1px 1px 0 rgba(0, 0, 0, 0.35) !important; background: var(--sun); transition-duration: 0.05s; }
+.card:active, .card.press { transform: translate(2px, 3px) !important; box-shadow: 1px 1px 0 rgba(0, 0, 0, 0.35) !important; }
+.sw:active, .sw.press, .sw2:active, .sw2.press { transform: translate(1px, 2px) scale(0.97) !important; box-shadow: none; }
+#edBar button:hover { background: var(--sun-2); } #edBar button:active { transform: translate(2px, 3px); box-shadow: 1px 1px 0 rgba(0, 0, 0, 0.35); }
+.card:hover:not(.locked), .card.focus:not(.locked) { background: #fff6db; }
+.sw.focus, .sw:hover { transform: translateY(-2px); }
+.btn:focus { outline: none; }
+/* keyboard / gamepad: a clear ring on top of the hover look */
+body.kbnav #scr .focus, body.kbnav #scr [data-nav]:focus-visible, #rotate .btn:focus-visible { outline: 3px solid var(--sun-2) !important; outline-offset: 4px !important; box-shadow: 0 0 0 3px var(--ink), 4px 6px 0 rgba(0, 0, 0, 0.45) !important; }
+body.kbnav #scr .btn.focus::after { content: ""; position: absolute; inset: -9px; border: 2px dashed rgba(255, 207, 106, 0.55); border-radius: 8px 14px 8px 14px; pointer-events: none; }
+.btn[disabled], .btn[aria-disabled="true"] { opacity: 0.55; cursor: not-allowed; box-shadow: none; border-style: dashed; background: var(--paper-2); }
+.card.locked { cursor: not-allowed; filter: grayscale(0.55); background-image: repeating-linear-gradient(135deg, rgba(43, 33, 24, 0.06) 0 8px, transparent 8px 16px); }
+.card.locked .num { color: var(--ink-2); }
+.card.locked .nm::after { content: ""; }
+.card .lockn { font-size: 12.5px; font-weight: 600; color: var(--margin); display: flex; gap: 4px; align-items: center; }
+.card .lockn::before { content: "🔒"; font-size: 12px; }
+.card.locked.focus { opacity: 0.85; }
+.newb { position: absolute; top: -10px; right: -8px; z-index: 2; font: 700 11px/1 var(--f-ui); letter-spacing: 0.08em; color: #fff; background: var(--margin); padding: 4px 7px; border-radius: 10px 4px 10px 4px; transform: rotate(6deg); box-shadow: 1px 2px 0 rgba(0, 0, 0, 0.35); pointer-events: none; font-style: normal; animation: newPulse 1.8s ease-in-out infinite; }
+@keyframes newPulse { 50% { transform: rotate(6deg) scale(1.1); } }
+.btn .newdot { display: inline-block; font: 700 10px/1 var(--f-ui); letter-spacing: 0.06em; text-transform: uppercase; color: #fff; background: var(--margin); padding: 3px 6px; border-radius: 8px; margin-left: 6px; font-style: normal; vertical-align: 2px; }
+.pcard.chosen { background: #fffaf0; }
+.pcard.chosen::after { content: "equipped"; position: absolute; top: -9px; right: 12px; font: 700 11px/1 var(--f-ui); letter-spacing: 0.06em; text-transform: uppercase; background: var(--ok); color: #fff; padding: 4px 8px; border-radius: 6px; transform: rotate(2deg); box-shadow: 1px 2px 0 rgba(0, 0, 0, 0.3); }
+.sw.sel { outline: 3px solid var(--ok); outline-offset: 2px; }
+.sw.lock::before { content: "🔒 " attr(data-need); font-size: 13px; }
+.dk.locked { position: relative; cursor: not-allowed; } .dk.locked::after { content: "🔒"; position: absolute; right: 2px; bottom: 0; font-size: 12px; }
+.rows .btn .val .arr { transition: opacity 0.12s, transform 0.12s; } .rows .btn.focus .val .arr { opacity: 1; } .rows .btn.focus .val .arr:first-child { transform: translateX(-3px); } .rows .btn.focus .val .arr:last-child { transform: translateX(3px); }
+/* empty states */
+.empty { margin: 0; align-self: flex-start; font-family: var(--f-hand); font-size: 21px; line-height: 1.25; color: #22305a; background: var(--paper); border: 2px solid var(--ink); border-radius: 4px 12px 4px 12px; padding: 8px 14px; box-shadow: 3px 4px 0 rgba(0, 0, 0, 0.35); transform: rotate(-0.6deg); max-width: 100%; box-sizing: border-box; }
+.empty-ink { margin: 6px 0 0; font-family: var(--f-hand); font-size: 21px; line-height: 32px; color: #22305a; }
+.cnone { padding: 6px 0; }
+.ovh summary { min-width: 0; } .ovh summary b { min-width: 0; } .ovh summary span { flex: 0 1 auto; min-width: 0; overflow-wrap: anywhere; word-break: break-all; text-align: right; letter-spacing: 1px; }
+/* rotate prompt for phones held upright during flight */
+#rotate { position: fixed; inset: 0; z-index: 40; display: none; place-items: center; padding: max(16px, env(safe-area-inset-top, 0px)) 16px max(16px, env(safe-area-inset-bottom, 0px)); box-sizing: border-box; background: #1a120c center / cover no-repeat; }
+#rotate.on { display: grid; }
+#rotate::before { content: ""; position: absolute; inset: 0; background: linear-gradient(180deg, rgba(20, 12, 6, 0.2), rgba(20, 12, 6, 0.78) 60%); }
+#rotate .rcard { position: relative; width: min(340px, 100%); text-align: center; display: flex; flex-direction: column; gap: 12px; align-items: stretch; padding: 22px 20px 20px 58px; transform: rotate(-1deg); }
+#rotate .phone { width: 46px; height: 76px; margin: 0 auto; border: 4px solid var(--ink); border-radius: 10px; position: relative; animation: rotPhone 2.2s ease-in-out infinite; }
+#rotate .phone::after { content: "✈"; position: absolute; inset: 0; display: grid; place-items: center; font-size: 22px; color: var(--margin); }
+@keyframes rotPhone { 0%, 25% { transform: rotate(0); } 55%, 85% { transform: rotate(-90deg); } 100% { transform: rotate(0); } }
+#rotate h3 { font-family: var(--f-hand); font-size: 30px; line-height: 1; color: var(--margin); }
+#rotate p { margin: 0; font-size: 15px; color: var(--ink-2); line-height: 1.4; }
+#rotate .btn { justify-content: center; text-align: center; }
+
+/* ── phones and tablets ── */
+.screen { padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; }
+.screen.center > *, #title > * { margin-top: auto; margin-bottom: auto; }
+#hObj { left: max(16px, env(safe-area-inset-left, 0px)); } #hGauge { left: max(16px, env(safe-area-inset-left, 0px)); }
+#hTime, #hRight { right: max(16px, env(safe-area-inset-right, 0px)); }
+@media (pointer: coarse) {
+  .btn, .btn.small, .res .btn, .title-wrap .menu .btn, #edBar button { min-height: 44px; }
+  .sw2 { width: 44px; height: 44px; } .dk { min-height: 52px; min-width: 52px; } .card { min-height: 44px; }
+  .ovh summary { min-height: 44px; align-items: center; } .code { min-height: 44px; box-sizing: border-box; }
+  .btn .k { font-size: 12px; }
+}
+/* phones in landscape: logo on the left, menu in two columns */
+@media (max-height: 520px) and (orientation: landscape) {
+  .title-wrap { max-width: none; width: 100%; margin-left: 0; display: grid; grid-template-columns: minmax(180px, 0.8fr) minmax(0, 1.6fr); grid-template-areas: "logo menu" "hint menu"; gap: 6px 18px; align-items: start; }
+  .title-wrap .logo { grid-area: logo; font-size: clamp(38px, 9vh, 60px); } .title-wrap .hintline { grid-area: hint; font-size: 11px; }
+  .title-wrap .menu { grid-area: menu; width: 100%; display: grid; grid-template-columns: 1fr 1fr; gap: 6px 10px; }
+  .title-wrap .menu .btn { min-height: 44px; padding: 4px 12px; font-size: 15px; }
+  .title-wrap .menu .btn .k { display: none; }
+  .btn.focus::before { display: none; }
+  .panel { gap: 10px; } .panel-head h2 { font-size: 30px; }
+  .grid { grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 12px; }
+  .story { padding: 18px 20px 16px 60px; } .story p { font-size: 19px; line-height: 26px; }
+  .res { padding: 16px 18px 14px 60px; } .res .ttl { font-size: 34px; } .res .tbl { font-size: 15px; line-height: 24px; } .res .note { font-size: 19px; line-height: 24px; }
+  .cuttitle { font-size: 30px; top: calc(9vh + 6px); }
+}
+/* tall narrow phones: compact title, menu keeps one column */
+@media (max-width: 480px) {
+  .title-wrap { margin-left: 0; } .title-wrap .menu { width: 100%; }
+  .grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+  .card { padding: 10px; } .card .num { font-size: 30px; } .card .nm { font-size: 16px; }
+  .bossintro ul { font-size: 14px; }
+}
+/* touch flight: big buttons bottom-right, meters bottom-left next to the speed dial, pause top-right */
+body.is-touch #tGust { right: max(16px, env(safe-area-inset-right, 0px)); bottom: max(18px, env(safe-area-inset-bottom, 0px)); width: 84px; height: 84px; }
+body.is-touch #tBrake { right: calc(max(16px, env(safe-area-inset-right, 0px)) + 96px); bottom: max(28px, calc(env(safe-area-inset-bottom, 0px) + 10px)); width: 62px; height: 62px; }
+body.is-touch #tSwap { right: calc(max(16px, env(safe-area-inset-right, 0px)) + 14px); bottom: max(116px, calc(env(safe-area-inset-bottom, 0px) + 98px)); width: 56px; height: 56px; }
+body.is-touch #tPause { top: max(14px, env(safe-area-inset-top, 0px)); right: max(16px, env(safe-area-inset-right, 0px)); width: 48px; height: 48px; }
+body.is-touch #hTime { right: calc(max(16px, env(safe-area-inset-right, 0px)) + 60px); }
+body.is-touch #hSplit { right: calc(max(16px, env(safe-area-inset-right, 0px)) + 60px); top: max(104px, calc(env(safe-area-inset-top, 0px) + 104px)); }
+body.is-touch #hRight { top: auto; right: auto; left: calc(max(16px, env(safe-area-inset-left, 0px)) + 158px); bottom: max(16px, env(safe-area-inset-bottom, 0px)); }
+body.is-touch #hObj { max-width: calc(100vw - 250px); }
+body.is-touch #hPow { bottom: max(124px, calc(env(safe-area-inset-bottom, 0px) + 124px)); max-width: calc(100vw - 200px); }
+body.is-touch #hBoss { width: min(360px, calc(100vw - 520px)); top: auto; bottom: max(16px, env(safe-area-inset-bottom, 0px)); }
+body.is-touch #hQuest { max-width: min(46vw, 260px); }
+@media (max-width: 640px) { body.is-touch #hRight { left: calc(max(16px, env(safe-area-inset-left, 0px)) + 132px); } }
+@media (max-width: 480px) { body.is-touch #hRight { left: max(16px, env(safe-area-inset-left, 0px)); bottom: max(104px, calc(env(safe-area-inset-bottom, 0px) + 104px)); } .title-wrap .btn.focus::before, body.art-ok-title #scr.art-title .btn.focus::before { display: none; } }
+@media (max-width: 700px) { body.is-touch #hBoss { width: calc(100vw - 32px); top: max(150px, calc(env(safe-area-inset-top, 0px) + 150px)); bottom: auto; } }
+@media (max-height: 560px), (max-width: 640px) { body.is-touch #hCtrl { display: none; } }
+@media (max-height: 520px) and (orientation: landscape) {
+  body.is-touch #tGust { width: 74px; height: 74px; } body.is-touch #tBrake { right: calc(max(16px, env(safe-area-inset-right, 0px)) + 86px); width: 56px; height: 56px; }
+  body.is-touch #tSwap { bottom: max(102px, calc(env(safe-area-inset-bottom, 0px) + 86px)); width: 50px; height: 50px; }
+  body.is-touch #hSpecial { top: max(84px, calc(env(safe-area-inset-top, 0px) + 84px)); } body.is-touch #hQuest { top: max(146px, calc(env(safe-area-inset-top, 0px) + 146px)); }
+  body.is-touch #hHint { top: max(70px, calc(env(safe-area-inset-top, 0px) + 70px)); }
+  body.is-touch #hPow { bottom: max(80px, calc(env(safe-area-inset-bottom, 0px) + 80px)); max-width: calc(100vw - 2 * 300px); }
+}
+/* ── tuned for the real illustrations ── */
+/* title: Sam waves from the window on the left — the menu moves to the right over the sky and town */
+body.art-ok-title #scr.art-title.scrim { justify-content: flex-end; background: linear-gradient(270deg, rgba(26, 16, 8, 0.72) 0%, rgba(26, 16, 8, 0.5) 30%, rgba(26, 16, 8, 0) 58%); }
+body.art-ok-title #scr.art-title .title-wrap { margin-left: 0; margin-right: clamp(0px, 5vw, 80px); align-items: flex-end; }
+body.art-ok-title #scr.art-title .title-wrap .logo { text-align: right; text-shadow: 0 3px 0 rgba(43, 33, 24, 0.75), 0 0 2px rgba(43, 33, 24, 0.9), 0 10px 30px rgba(0, 0, 0, 0.55); }
+body.art-ok-title #scr.art-title .hintline { justify-content: flex-end; text-shadow: 0 1px 3px rgba(0, 0, 0, 0.8); }
+body.art-ok-title #scr.art-title .btn.focus::before { left: auto; right: -30px; transform: scaleX(-1); }
+#art img[data-a="title"] { object-position: 20% 30%; }
+/* map: lighter tint, a paper header strip so the heading reads over the busy drawing */
+#scr.art-map .panel-head { background: rgba(26, 16, 8, 0.72); border-radius: 6px 14px 6px 14px; padding: 6px 14px; align-self: flex-start; box-shadow: 0 6px 18px rgba(0, 0, 0, 0.3); }
+#scr.art-map .panel-head .sub { background: none; padding: 0; }
+#scr.art-map .card { box-shadow: 3px 4px 0 rgba(43, 33, 24, 0.55), 0 8px 18px rgba(0, 0, 0, 0.18); }
+#scr.art-map .card.locked { background-color: rgba(239, 228, 200, 0.92); }
+/* Grimsby: the right half is empty parchment — write on it in ink */
+#scr.art-grimsby { background: linear-gradient(90deg, rgba(60, 40, 20, 0) 45%, rgba(248, 236, 210, 0.35) 70%); }
+body.art-ok-grimsby .bossintro { color: var(--ink); }
+body.art-ok-grimsby .bossintro .bi-k { color: var(--margin); font-weight: 600; }
+body.art-ok-grimsby .bossintro h2 { color: #3a2414; text-shadow: 0 2px 0 rgba(255, 248, 230, 0.8); }
+body.art-ok-grimsby .bossintro p { text-shadow: 0 1px 0 rgba(255, 248, 230, 0.9); color: #2b2118; }
+body.art-ok-grimsby .bossintro p.q { color: #8a2a1a; }
+#art img[data-a="grimsby"] { object-position: 30% 50%; }
+/* diary: the open book stays in view; cards sit on it */
+#art img[data-a="diary"] { object-position: 50% 50%; }
+#scr.art-diary .res { box-shadow: 0 1px 0 rgba(0, 0, 0, 0.08), 0 24px 50px rgba(40, 24, 10, 0.5), 0 2px 6px rgba(0, 0, 0, 0.25); }
+/* ending: kids bottom-left, Grimsby bottom-right, planes in the sky — words go up top */
+#scr.art-ending { align-items: flex-start; background: linear-gradient(180deg, rgba(20, 12, 6, 0.35), rgba(20, 12, 6, 0) 45%); }
+#scr.art-ending .story { width: min(480px, 100%); padding: 20px 22px 16px 62px; transform: rotate(-0.8deg); }
+#scr.art-ending > .story { margin-top: 0 !important; margin-bottom: auto !important; }
+#scr.art-ending .story .ttl + .pl { margin-bottom: 8px; }
+#scr.art-ending .story p { font-size: clamp(17px, 1.9vw, 21px); line-height: 26px; }
+#scr.art-ending .story .ttl { font-size: 32px; }
+.roll { top: 5vh; bottom: 50vh; right: auto; left: max(calc(min(480px, 100vw) + 80px), 38vw); width: min(340px, 30vw); }
+#art img[data-a="ending"] { object-position: 50% 70%; }
+@media (orientation: portrait) {
+  #art img[data-a="title"] { object-position: 4% 30%; } #art img[data-a="grimsby"] { object-position: 22% 50%; }
+  #art img[data-a="ending"] { object-position: 82% 100%; } #art img[data-a="map"] { object-position: 30% 50%; }
+  body.art-ok-title #scr.art-title.scrim { justify-content: center; background: linear-gradient(180deg, rgba(26, 16, 8, 0) 0%, rgba(26, 16, 8, 0.35) 38%, rgba(26, 16, 8, 0.78) 70%); }
+  body.art-ok-title #scr.art-title { align-items: flex-end; }
+  body.art-ok-title #scr.art-title .title-wrap { margin: auto 0 0; align-items: stretch; }
+  body.art-ok-title #scr.art-title .title-wrap .logo { text-align: left; }
+  body.art-ok-title #scr.art-title .hintline { justify-content: flex-start; }
+  body.is-touch #scr.art-title .hintline, #scr.art-title .hintline:empty { display: none; }
+  body.art-ok-title #scr.art-title .title-wrap { gap: 12px; }
+  body.art-ok-title #scr.art-title .logo { font-size: clamp(44px, 13vw, 64px); }
+  #scr.art-ending { flex-direction: column; flex-wrap: nowrap; }
+  #scr.art-ending .roll { position: relative; left: auto; right: auto; top: auto; bottom: auto; width: 100%; height: 24vh; flex: none; margin-top: 10px; background: rgba(20, 12, 6, 0.35); border-radius: 12px; }
+}
+@media (orientation: portrait), (max-width: 640px) {
+  #scr.art-grimsby { background: linear-gradient(180deg, rgba(20, 12, 6, 0) 35%, rgba(20, 12, 6, 0.5) 70%); }
+  body.art-ok-grimsby .bossintro { background-color: var(--paper); color: var(--ink); border: 2px solid var(--ink); border-radius: 4px 12px 6px 12px; padding: 16px 16px 16px 20px; box-shadow: 0 18px 40px rgba(0, 0, 0, 0.45); box-sizing: border-box; gap: 8px; }
+  body.art-ok-grimsby .bossintro h2 { font-size: 42px; }
+  body.art-ok-grimsby .bossintro ul { box-shadow: none; transform: none; background: transparent; border: 0; padding: 0 0 0 18px; }
+}
+@media (max-height: 520px) and (orientation: landscape) {
+  body.art-ok-title #scr.art-title .title-wrap { width: min(560px, 66vw); grid-template-columns: 1fr; grid-template-areas: "logo" "menu"; gap: 6px; }
+  body.art-ok-title #scr.art-title .title-wrap .hintline { display: none; }
+  body.art-ok-title #scr.art-title .title-wrap .logo { font-size: clamp(34px, 10vh, 52px); }
+  .bossintro { gap: 6px; } .bossintro h2 { font-size: 40px; } .bossintro p { font-size: 17px; } .bossintro ul { font-size: 13px; padding: 6px 10px 6px 26px; }
+  #scr.art-ending .story { width: min(420px, 55vw); }
+  .roll { top: 3vh; bottom: auto; height: 36vh; left: auto; right: max(16px, env(safe-area-inset-right, 0px)); width: 34vw; }
+  .roll-in div { font-size: 17px; } .roll-in .big { font-size: 28px; }
+  #scr.art-ending .story .go, #scr.art-ending .story .go + p { font-size: 13px !important; line-height: 18px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .screen, #art img, #art img.drift.on, .newb, #rotate .phone, #art.loading::before, #art .aload .plane { animation: none !important; }
+  #art, #art img, .btn, .card, .sw, .rows .btn .val .arr { transition: none !important; }
+  .roll { overflow-y: auto; pointer-events: auto; } .roll-in { position: static; animation: none; }
+}`;
+  document.body.appendChild(st); // after the game's own <style> (which lives in the body), so equal selectors win
+}
+
+// ── Art: lazy illustration loader with graceful fallback ──
+const Art = {
+  st: {}, img: {}, cur: null, since: 0,
+  el: null,
+  mount() {
+    if (this.el) return;
+    const el = this.el = document.createElement('div'); el.id = 'art'; el.setAttribute('aria-hidden', 'true');
+    el.innerHTML = '<i class="vig"></i><i class="grain"></i><div class="aload"><span class="plane">✈</span>unfolding the picture…</div>';
+    document.getElementById('screens').before(el);
+  },
+  // starts loading (once) and resolves true/false
+  load(name) {
+    this.mount();
+    if (this.img[name]) return this.img[name]._p;
+    const im = new Image(); im.alt = ''; im.decoding = 'async'; im.dataset.a = name; if (name === 'title' || name === 'ending') im.className = 'drift';
+    this.st[name] = 'loading'; this.img[name] = im;
+    im._p = new Promise((res) => {
+      im.onload = () => { this.st[name] = 'ok'; document.body.classList.add('art-ok-' + name); if (this.cur === name) this.reveal(); res(true); };
+      im.onerror = () => { this.st[name] = 'fail'; document.body.classList.add('art-fail-' + name); if (this.cur === name) this.set(null); res(false); };
+    });
+    im.src = ART[name];
+    this.el.insertBefore(im, this.el.querySelector('.vig'));
+    return im._p;
+  },
+  reveal() { const im = this.img[this.cur]; if (!im) return; for (const k in this.img) this.img[k].classList.toggle('on', k === this.cur); this.el.classList.remove('loading'); this.since = performance.now(); },
+  set(name) {
+    this.mount();
+    if (name && this.st[name] === 'fail') name = null;
+    if (name === this.cur) return;
+    this.cur = name; this.since = Infinity;
+    if (!name) { this.el.classList.remove('on', 'loading'); for (const k in this.img) this.img[k].classList.remove('on'); return; }
+    this.el.classList.add('on'); this.load(name);
+    if (this.st[name] === 'ok') this.reveal(); else { this.el.classList.add('loading'); for (const k in this.img) this.img[k].classList.remove('on'); }
+  },
+  // the picture fully covers the 3D view: skip rendering the attract scene behind it
+  covers() { return !!this.cur && this.st[this.cur] === 'ok' && performance.now() - this.since > 700; },
+  prefetch() { const go = () => Object.keys(ART).forEach((n) => this.load(n)); (window.requestIdleCallback || ((f) => setTimeout(f, 1200)))(go, { timeout: 4000 }); },
+  // which picture belongs behind the current menu
+  pick() {
+    if (!document.getElementById('scr')) return null;
+    const s = UI.state, L = LEVELS[Game.li], id = L && L.id;
+    if (s === 'title' || s === 'confirm' || s === 'mpsetup') return 'title';
+    if (s === 'settings') return Game._setFrom === 'pause' ? null : 'title';
+    if (s === 'levels' || s === 'courses' || s === 'cnew') return 'map';
+    if (s === 'bossintro' || (s === 'story' && id === 'boss' && !Game.customDef)) return 'grimsby';
+    if (s === 'results' || s === 'notebook') return 'diary';
+    if (s === 'ending') return 'ending';
+    return null;
+  },
+  sync() {
+    const scr = document.getElementById('scr'); const name = this.pick();
+    if (scr) { for (const k of Object.keys(ART)) scr.classList.toggle('art-' + k, k === name); }
+    this.set(name);
+  },
+};
+window.__art = Art;
+
+// ── "seen" tracking for NEW badges (levels, paper, achievements) — defaulted on load so old saves keep working ──
+const SEEN = () => {
+  const d = Store.data;
+  if (!d.seen) { d.seen = { lv: {}, sk: {}, ach: {} }; LEVELS.forEach((L, i) => { if (i + 1 <= d.unlocked) d.seen.lv[L.id] = 1; }); SKINS.forEach((s) => { if (skinOpen(s)) d.seen.sk[s.id] = 1; }); Object.keys(d.ach || {}).forEach((k) => (d.seen.ach[k] = 1)); }
+  d.seen.lv = d.seen.lv || {}; d.seen.sk = d.seen.sk || {}; d.seen.ach = d.seen.ach || {};
+  return d.seen;
+};
+{ const _ld = Store.load; Store.load = function () { const r = _ld.call(this); SEEN(); return r; }; }
+const newLevels = () => LEVELS.filter((L, i) => i + 1 <= Store.data.unlocked && !SEEN().lv[L.id]);
+const newSkins = () => SKINS.filter((s) => skinOpen(s) && !SEEN().sk[s.id]);
+const newAchs = () => Object.keys(Store.data.ach || {}).filter((k) => !SEEN().ach[k]);
+
+// ── UI: transitions, art per screen, keyboard focus ring, pressed flash ──
+{
+  const _show = UI.show;
+  UI.show = function (html, cls) {
+    const same = this._shownState === this.state && !!html;
+    _show.call(this, html, cls);
+    const scr = document.getElementById('scr');
+    if (scr && same) scr.classList.add('same');
+    if (!html) { Art.set(null); this._shownState = 'none'; return; }
+    Art.sync(); this._shownState = this.state;
+    queueMicrotask(() => { if (document.getElementById('scr') === scr) { Art.sync(); this._shownState = this.state; } });
+  };
+  const _sf = UI.setFocus;
+  UI.setFocus = function (i, silent) {
+    _sf.call(this, i, silent);
+    const el = this.items[this.focus];
+    if (el && document.body.classList.contains('kbnav') && document.activeElement !== el) { this._syncing = true; try { el.focus({ preventScroll: true }); } catch (e) {} this._syncing = false; }
+  };
+  const _act = UI.activate;
+  UI.activate = function () { const el = this.items[this.focus]; if (el) { el.classList.add('press'); setTimeout(() => el.classList.remove('press'), 140); } return _act.call(this); };
+  const _nav = UI.nav;
+  UI.nav = function () { const P = Input.pressed; if (P.up || P.down || P.left || P.right) document.body.classList.add('kbnav'); return _nav.call(this); };
+  const kb = (on) => document.body.classList.toggle('kbnav', on);
+  window.addEventListener('keydown', (e) => {
+    if (e.key === 'Tab' || e.key.startsWith('Arrow')) kb(true);
+    // menus are driven by Input; stop the browser from also "clicking" a focused button on Enter
+    if (e.key === 'Enter' && e.target && e.target.closest && e.target.closest('#screens') && e.target.tagName === 'BUTTON') e.preventDefault();
+  }, true);
+  window.addEventListener('mousemove', (e) => { if ((Math.abs(e.movementX) + Math.abs(e.movementY)) > 2) kb(false); });
+  window.addEventListener('pointerdown', (e) => { if (e.pointerType !== 'mouse' || e.button === 0) kb(false); }, true);
+  // Tab moves real focus: keep the game's focus index in step
+  document.getElementById('screens').addEventListener('focusin', (e) => {
+    if (UI._syncing) return; const i = UI.items.indexOf(e.target); if (i >= 0 && i !== UI.focus) UI.setFocus(i, true);
+  });
+}
+
+// ── screens: badges, locks with requirements, empty states ──
+{
+  const relink = () => { UI.items = [...document.querySelectorAll('#scr [data-nav]')]; };
+  const _title = Game.title;
+  Game.title = function () {
+    const r = _title.apply(this, arguments);
+    const tag = (act, n) => { const b = document.querySelector(`#scr .menu [data-act="${act}"]`); if (b && n) b.insertAdjacentHTML('beforeend', `<em class="newdot">${n > 1 ? n + ' new' : 'new'}</em>`); };
+    tag('levels', newLevels().length); tag('hangar', newSkins().length); tag('notebook', newAchs().length);
+    Art.prefetch();
+    return r;
+  };
+  const _lv = Game.levels;
+  Game.levels = function () {
+    const r = _lv.apply(this, arguments);
+    const nw = new Set(newLevels().map((L) => L.id));
+    document.querySelectorAll('#scr .grid .card[data-i]').forEach((el) => {
+      const i = +el.dataset.i, L = LEVELS[i]; if (!L) return;
+      if (nw.has(L.id)) el.insertAdjacentHTML('beforeend', '<em class="newb">NEW</em>');
+      if (el.classList.contains('locked')) {
+        const need = L.bonus ? (Store.data.unlocked <= 9 ? 'Finish the story to open' : `Finish ${LEVELS[i - 1] ? '“' + LEVELS[i - 1].name + '”' : 'the level before'}`) : `Finish “${LEVELS[i - 1] ? LEVELS[i - 1].name : '…'}”`;
+        el.setAttribute('aria-disabled', 'true'); el.querySelector('.meta')?.insertAdjacentHTML('beforebegin', `<span class="lockn">${need}</span>`);
+      }
+    });
+    if (!Object.keys(Store.data.best || {}).length) document.querySelector('#scr .panel-head')?.insertAdjacentHTML('afterend', '<p class="empty">No medals yet — beat the gold time in any room and it shines here. Your ghost joins you after your first finish.</p>');
+    return r;
+  };
+  { const _st = Game.story; Game.story = function (i, noCut) {
+      const L = LEVELS[i];
+      if (L && L.id === 'boss' && !noCut && !this._bossIntroOK && !this.marathon && !this.customDef) return this.bossIntro(i);
+      this._bossIntroOK = false;
+      if (L) { SEEN().lv[L.id] = 1; Store.save(); }
+      return _st.call(this, i, noCut);
+    }; }
+  Game.bossIntro = function (i) {
+    this.li = i; this.practice = false; if (!this.level || this.level.def.id !== 'boss') this.loadLevel(i, true);
+    this.mode = 'menu'; UI.state = 'bossintro'; $('hud').hidden = true; document.body.classList.remove('playing');
+    const beaten = !!(Store.data.best.boss);
+    UI.show(`<div class="bossintro"><div class="bi-k">${i + 1} · Main Hall · 3:24 pm</div><h2>Principal Grimsby</h2>
+      <p>Keeper of the Drawer. Confiscator of ${beaten ? 'very few planes these days' : 'thirty-one planes this term'}. Ringer of the last bell.</p>
+      <p class="q">“No paper shall fly in MY hall.”</p>
+      <ul><li>When the net goes up — dodge.</li><li>When he stamps — stay high.</li><li>Free the planes in his drawer, then ring the bell through the paper storm.</li></ul>
+      <div class="bi-b"><button class="btn" data-nav data-act="bossGo" data-def="1">Face him ✈</button><button class="btn small" data-nav data-act="levels">← Levels</button></div></div>`, 'center');
+    UI.back = () => this.levels();
+  };
+  Game.acts.bossGo = () => { Game._bossIntroOK = true; Game.story(Game.li); };
+  const _h = Game.hangar;
+  Game.hangar = function () {
+    const nw = new Set(newSkins().map((s) => s.id));
+    const r = _h.apply(this, arguments);
+    document.querySelectorAll('#scr .sw[data-k]').forEach((el) => { if (nw.has(el.dataset.k)) el.insertAdjacentHTML('beforeend', '<em class="newb">NEW</em>'); if (el.classList.contains('lock')) el.setAttribute('aria-disabled', 'true'); });
+    document.querySelectorAll('#scr .pcard').forEach((el) => el.setAttribute('aria-pressed', el.classList.contains('chosen') ? 'true' : 'false'));
+    for (const id of nw) SEEN().sk[id] = 1; Store.save();
+    return r;
+  };
+  const _nb = Game.notebook;
+  Game.notebook = function () {
+    const nw = new Set(newAchs());
+    const r = _nb.apply(this, arguments);
+    const S = Store.data.stats || {};
+    if (!S.levels) document.querySelector('#scr .nb')?.insertAdjacentHTML('beforeend', '<p class="empty-ink">Nothing written yet. Fly your first room and Sam starts keeping notes.</p>');
+    document.querySelectorAll('#scr .paper.ovhs').forEach((el) => { const t = el.querySelector('.ovt'); if (t && /diary/i.test(t.textContent)) { el.classList.add('diarysec'); if (!Object.keys(Store.data.diary || {}).length) el.querySelector('.diary')?.insertAdjacentHTML('afterbegin', '<p class="empty-ink" style="margin:0">The diary is empty. Finish a level and Sam writes the first page.</p>'); } });
+    if (!Object.keys(Store.data.ach || {}).length) document.querySelector('#scr .achs')?.insertAdjacentHTML('beforebegin', '<p class="empty">No badges yet — every one below is waiting for you.</p>');
+    if (nw.size) { const ACH = ACHS; document.querySelectorAll('#scr .ach.got').forEach((el) => { const n = el.querySelector('b')?.textContent; const a = ACH.find((q) => q.n === n); if (a && nw.has(a.id)) { el.style.position = 'relative'; el.insertAdjacentHTML('beforeend', '<em class="newb">NEW</em>'); } }); }
+    for (const id of nw) SEEN().ach[id] = 1; Store.save();
+    return r;
+  };
+  // results and challenge cards: the default button is the next step — nothing to add; keep courses' empty state readable
+  const _cs = Game.courses;
+  if (_cs) Game.courses = function () { const r = _cs.apply(this, arguments); document.querySelectorAll('#scr .crow2 .code').forEach((el) => el.setAttribute('aria-label', 'Course code')); return r; };
+}
+
+// ── the ending: full-screen illustration, the outro and a credits roll ──
+{
+  const _end = Game.ending;
+  Game.ending = function () {
+    const r = _end.apply(this, arguments);
+    const scr = document.getElementById('scr'); if (!scr) return r;
+    const names = (o) => Object.values(o).map((c) => c.n).filter(Boolean);
+    const sec = (h, list) => `<h4>${h}</h4>${list.map((x) => `<div>${x}</div>`).join('')}`;
+    scr.insertAdjacentHTML('beforeend', `<div class="roll" aria-label="Credits"><div class="roll-in">
+      <div class="big">Paper Flight</div><div>a note for Mia</div>
+      ${sec('A game by', ['Diego Danylov'])}${sec('Built with help from', ['Claude'])}
+      ${sec('Starring', ['Sam', 'Mia'])}
+      ${sec('Class 5B', names(typeof CAST !== 'undefined' ? CAST : {}))}
+      ${sec('Teachers', names(typeof TEACHERS !== 'undefined' ? TEACHERS : {}))}
+      ${sec('And introducing', ['Principal Grimsby, as himself', 'Vice Principal Thorne', 'Nibbles the hamster', 'Biscuit · Noodle · the pigeons'])}
+      ${sec('Pictures', ['drawn on notebook paper', 'coloured pencil & watercolour'])}
+      ${sec('Sound & music', ['folded from scratch, in your browser'])}
+      ${sec('Built with', ['three.js', 'Gochi Hand · Fredoka'])}
+      <h4>&nbsp;</h4><div class="big" style="font-size:30px">Thanks for flying.</div><div>3:31 pm. The bell has rung.</div>
+    </div></div>`);
+    return r;
+  };
+}
+
+// ── rotate prompt: flying with a phone held upright is cramped — ask to turn it, but allow it anyway ──
+{
+  const el = document.createElement('div'); el.id = 'rotate'; el.setAttribute('role', 'dialog'); el.setAttribute('aria-label', 'Turn your phone sideways');
+  el.innerHTML = `<div class="paper rcard"><div class="phone"></div><h3>Turn your phone sideways</h3><p>The school is wide — paper planes fly best in landscape.</p>
+    <button class="btn" id="rotAny">Fly upright anyway</button><button class="btn small" id="rotMenu">Pause</button></div>`;
+  document.body.appendChild(el);
+  const mq = matchMedia('(orientation: portrait) and (max-width: 600px)');
+  const Rot = window.__rot = { on: false, allow: false,
+    check() {
+      const want = mq.matches && !this.allow && document.body.classList.contains('playing') && !Game.mp && ['play', 'countdown', 'respawn'].includes(Game.mode);
+      if (want !== this.on) { this.on = want; el.classList.toggle('on', want); if (want) { Art.load('title').then((ok) => { if (ok) el.style.backgroundImage = `url(${ART.title})`; }); setTimeout(() => { try { $('rotAny').focus({ preventScroll: true }); } catch (e) {} }, 50); } }
+    } };
+  $('rotAny').addEventListener('click', () => { Rot.allow = true; Rot.check(); Audio.click && Audio.click(); });
+  $('rotMenu').addEventListener('click', () => { Rot.on = false; el.classList.remove('on'); Game.pauseMenu(); });
+  const _fr = Game.frame;
+  Game.frame = function (dt, t) {
+    Rot.check();
+    if (Rot.on) { Input.poll(dt); if (Input.take('confirm')) { Rot.allow = true; Rot.check(); } Input.clear(); return this.render(dt, t); } // frozen until turned
+    return _fr.call(this, dt, t);
+  };
+  // skip drawing the 3D scene while an illustration fully covers it (saves battery on phones)
+  const _r = Game.render;
+  Game.render = function (dt, t) { if (Art.covers() && !this.mp && (this.mode === 'menu' || this.mode === 'results' || this.mode === 'story')) return; return _r.call(this, dt, t); };
 }
 
 boot();
