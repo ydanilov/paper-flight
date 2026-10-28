@@ -24,7 +24,7 @@ Menus: arrows/WASD + Enter, Tab, mouse, gamepad or touch. On a phone, turn it si
 
 ## Repo
 - `src.html` — the source of truth (artifact body). `index.html` is generated from it by `tools/build-index.sh`.
-- `assets/` — storybook illustrations (title, map, Principal Grimsby, diary, ending).
+- `assets/` — storybook illustrations (title, map, Principal Grimsby, diary, ending) and four painted sky panoramas (day, sunset, night, rain) for the outdoor levels and the windows.
 - `tools/` — Playwright test harness.
 - `CLAUDE.md` — the full guide for continuing development with Claude.
 
@@ -37,6 +37,7 @@ bash runall.sh                # all 16 levels, every objective, in batches (slow
 node menus.js desktop         # every menu/state, focus ring, all 5 images load → tools/shots/
 node menus.js mobile
 node mobile.js                # 390×844, 844×390, 768×1024: overflow, HUD vs touch controls, rotate prompt
+node sky.js yard,roof,rain     # painted skies load and fade in → tools/shots/sky_*
 ```
 
 GitHub: https://github.com/ydanilov/paper-flight

@@ -8923,6 +8923,137 @@ const newAchs = () => Object.keys(Store.data.ach || {}).filter((k) => !SEEN().ac
   Game.render = function (dt, t) { if (Art.covers() && !this.mp && (this.mode === 'menu' || this.mode === 'results' || this.mode === 'story')) return; return _r.call(this, dt, t); };
 }
 
+
+// ═════════ v11: PAINTED SKIES — storybook panoramas on the outdoor sky dome and through indoor windows ═════════
+// Purely visual. Four watercolour panoramas in assets/ (1376×768, roughly seamless). Outdoors, makeSky()'s gradient dome
+// gets the painting (two mirrored copies around the horizon, top blends into a cap colour) and fog is tinted to the
+// painted horizon. Indoors, the window glass (M.glass) looks the sky up along the view direction, so every window shows
+// the painted sky with parallax. Loaded lazily per level; until it loads (or if it fails) the old gradient/glass stays.
+const SKY_ART = { day: 'assets/pf_sky_day.webp', sunset: 'assets/pf_sky_sunset.webp', night: 'assets/pf_sky_night.webp', rain: 'assets/pf_sky_rain.webp' };
+// level id → painting (anything else: day). Golden Hour free flight is 'free'; custom courses use their room's id.
+const SKY_OF = { yard: 'day', town: 'day', roof: 'night', bus: 'sunset', party: 'sunset', free: 'sunset', home: 'sunset', rain: 'rain' };
+// per painting: source crop (the sunset sheet has a paper border), vertical span (radians above the horizon the picture covers),
+// how far below the horizon the bottom edge sits, where along the width the sun/moon is (aligned to the level's light), glow
+const SKY_CFG = {
+  day: { crop: [0, 0, 1, 1], span: 0.86, v0: 0.05, sunU: null, glow: 1, rep: 4, tint: [0.74, 0.88, 1.04], sat: 1.4 },
+  sunset: { crop: [44 / 1376, 40 / 768, 1 - 44 / 1376, 1], span: 1.0, v0: 0.04, sunU: 0.5, glow: 0, rep: 2 },
+  night: { crop: [0, 0, 1, 1], span: 1.2, v0: 0.07, sunU: 0.69, glow: 0, rep: 2 },
+  rain: { crop: [0, 0, 1, 1], span: 1.15, v0: 0.07, sunU: null, glow: 0, rep: 2 },
+};
+const SKY_GLSL = `uniform sampler2D tSky; uniform float skyAz, skySpan, skyV0, skyRep, skySat; uniform vec3 skyCap, skyGround, skyTint;
+vec3 skyLook(vec3 d) {
+  float a = atan(d.z, d.x) - skyAz; float s = fract(a / 6.2831853 * skyRep * 0.5 + 0.25); float u = 1.0 - abs(2.0 * s - 1.0);
+  float e = asin(clamp(d.y, -1.0, 1.0)); float v = (e + skyV0) / skySpan;
+  vec3 c = texture2D(tSky, vec2(clamp(u, 0.002, 0.998), clamp(v, 0.004, 0.996))).rgb;
+  c = mix(vec3(dot(c, vec3(0.3, 0.55, 0.15))), c, skySat);
+  c *= mix(vec3(1.0), skyTint, smoothstep(0.12, 0.8, v));
+  c = mix(c, skyCap * skyTint, smoothstep(0.84, 1.1, v));
+  c = mix(c, skyGround, smoothstep(0.0, -0.15, v));
+  return c; }`;
+const Sky = {
+  st: {}, tex: {}, info: {}, p: {}, cur: null, L: null,
+  U: { tSky: { value: null }, skyAz: { value: 0 }, skySpan: { value: 1.1 }, skyV0: { value: 0.05 }, skyRep: { value: 2 }, skySat: { value: 1 }, skyTint: { value: new THREE.Vector3(1, 1, 1) }, skyCap: { value: new THREE.Color() }, skyGround: { value: new THREE.Color() } },
+  domeK: { value: 0 }, glassK: { value: 0 }, sunK: { value: 0 }, fadeTo: 0, glass: 0,
+  load(k) {
+    if (this.p[k]) return this.p[k];
+    this.st[k] = 'loading';
+    return (this.p[k] = new Promise((res) => {
+      const im = new Image(); im.decoding = 'async';
+      im.onload = () => {
+        try {
+          const cfg = SKY_CFG[k], [x0, y0, x1, y1] = cfg.crop, sw = (x1 - x0) * im.naturalWidth, sh = (y1 - y0) * im.naturalHeight;
+          const W = QUAL() === 'low' ? 512 : QUAL() === 'med' ? 1024 : 1376, H = Math.round(W * sh / sw);
+          const t = canvasTex(W, H, (g) => g.drawImage(im, x0 * im.naturalWidth, y0 * im.naturalHeight, sw, sh, 0, 0, W, H), { repeat: false });
+          t.wrapS = t.wrapT = THREE.ClampToEdgeWrapping; t.anisotropy = 4;
+          // average colours: the top rows (cap), just above the skyline (horizon/fog), the bottom rows (ground)
+          const c = document.createElement('canvas'); c.width = 16; c.height = 32; const g = c.getContext('2d', { willReadFrequently: true }); g.drawImage(t.image, 0, 0, 16, 32);
+          const avg = (r0, r1) => { const d = g.getImageData(0, r0, 16, r1 - r0).data; let r = 0, gg = 0, b = 0, n = 0; for (let i = 0; i < d.length; i += 4) { r += d[i]; gg += d[i + 1]; b += d[i + 2]; n++; } return new THREE.Color().setRGB(r / n / 255, gg / n / 255, b / n / 255, THREE.SRGBColorSpace); };
+          this.tex[k] = t; this.info[k] = { cap: avg(0, 2), hor: avg(k === 'night' || k === 'rain' ? 17 : 22, k === 'night' || k === 'rain' ? 22 : 27), ground: avg(30, 32) };
+          this.st[k] = 'ok'; res(true);
+          if (this.L && this.cur === k && Game.level === this.L) this.apply(this.L);
+        } catch (e) { this.st[k] = 'fail'; res(false); }
+      };
+      im.onerror = () => { this.st[k] = 'fail'; res(false); };
+      im.src = SKY_ART[k];
+    }));
+  },
+  keyFor(L) { const d = L.def || {}; return SKY_OF[d.custom ? d.custom.l : d.id] || 'day'; },
+  // before the level's lights are set up: start loading; if the painting is ready, tint fog and sky light to it
+  pre(L) {
+    const k = this.cur = this.keyFor(L); this.L = L; this.domeK.value = 0; this.glassK.value = 0; this.fadeTo = 0;
+    this.load(k);
+    if (this.st[k] !== 'ok') return;
+    const I = this.info[k], out = L.outdoor || (L.def && L.def.outdoor);
+    if (out) {
+      if (L.fog) L.fog = Object.assign({}, L.fog, { color: new THREE.Color(L.fog.color).lerp(I.hor, 0.6).getHex() });
+      if (L.hemi) L.hemi = Object.assign({}, L.hemi, { sky: new THREE.Color(L.hemi.sky).lerp(I.cap, 0.25).getHex() });
+      L._skyTinted = true;
+    }
+  },
+  post(L) { if (this.st[this.cur] === 'ok') this.apply(L, true); },
+  apply(L, now) {
+    const k = this.cur, I = this.info[k], cfg = SKY_CFG[k]; if (!I) return;
+    const U = this.U; U.tSky.value = this.tex[k]; U.skySpan.value = cfg.span; U.skyRep.value = cfg.rep; U.skySat.value = cfg.sat || 1.1; U.skyTint.value.fromArray(cfg.tint || [1, 1, 1]); U.skyV0.value = cfg.v0; U.skyCap.value.copy(I.cap); U.skyGround.value.copy(I.ground);
+    const sd = (L.sun && L.sun.dir) || v3(1, 0.6, 0.2);
+    U.skyAz.value = Math.atan2(sd.z, sd.x) - (cfg.sunU != null ? (cfg.sunU / 2 - 0.25) * Math.PI * 2 / (cfg.rep / 2) : 0); // the painted sun/moon sits where the light comes from
+    this.sunK.value = cfg.glow;
+    const out = L.outdoor || (L.def && L.def.outdoor);
+    let domes = 0; L.outer.traverse((o) => { if (o.userData && o.userData.pfSky) domes++; });
+    if (out && domes) { this.fadeTo = 1; this.glass = 0;
+      if (!L._skyTinted && scene.fog) { scene.fog.color.lerp(I.hor, 0.6); hemi.color.lerp(I.cap, 0.25); } }
+    else if (!out) { this.fadeTo = 0; this.glass = 1; }
+    if (out) scene.background = I.hor.clone();
+    if (now) { this.domeK.value = this.fadeTo; this.glassK.value = this.glass; }
+  },
+  tick(dt) {
+    const sp = dt * 1.6;
+    this.domeK.value += clamp(this.fadeTo - this.domeK.value, -sp, sp);
+    this.glassK.value += clamp(this.glass - this.glassK.value, -sp, sp);
+  },
+};
+window.__sky = Sky;
+// the gradient dome learns to show the painting (keeps its old uniforms: the rain level recolours top/bottom/sd)
+{
+  const _mk = makeSky;
+  makeSky = function (top, bottom, sunDir) {
+    const s = _mk(top, bottom, sunDir), m = s.material;
+    Object.assign(m.uniforms, Sky.U, { domeK: Sky.domeK, sunK: Sky.sunK });
+    m.fragmentShader = `uniform vec3 top, bottom, sd; uniform float domeK, sunK; varying vec3 vD;
+      ${SKY_GLSL}
+      void main(){ vec3 d = normalize(vD); float h = clamp(d.y*1.4+0.1,0.0,1.0); vec3 c = mix(bottom, top, pow(h,0.8));
+        float s = max(dot(d, sd),0.0); vec3 glow = vec3(1.0,0.8,0.5)*pow(s,24.0)*1.2 + vec3(1.0,0.9,0.6)*pow(s,600.0)*6.0;
+        c += glow;
+        if (domeK > 0.0) { vec3 p = skyLook(d) * 0.96 + glow * 0.35 * sunK; c = mix(c, p, domeK); }
+        gl_FragColor = vec4(c,1.0); }`;
+    m.needsUpdate = true; s.userData.pfSky = true;
+    return s;
+  };
+  // window glass: blend the painted sky in, looked up along the view ray (parallax for free, no extra geometry);
+  // the ray is tilted up a little so eye level shows the lower sky with the skyline just under it
+  const patchGlass = (mat) => {
+    mat.onBeforeCompile = (sh) => {
+      Object.assign(sh.uniforms, Sky.U, { glassK: Sky.glassK });
+      sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nvarying vec3 vSkyW;').replace('#include <project_vertex>', `#include <project_vertex>
+        { vec4 sw = vec4(transformed, 1.0);
+        #ifdef USE_INSTANCING
+          sw = instanceMatrix * sw;
+        #endif
+          vSkyW = (modelMatrix * sw).xyz; }`);
+      sh.fragmentShader = sh.fragmentShader.replace('#include <common>', `#include <common>\nvarying vec3 vSkyW; uniform float glassK;\n${SKY_GLSL}`)
+        .replace('#include <map_fragment>', `#include <map_fragment>
+          if (glassK > 0.0) { vec3 vd = normalize(vSkyW - cameraPosition); vd.y = vd.y * 0.85 + 0.24; vec3 sc = skyLook(normalize(vd)); diffuseColor.rgb = mix(diffuseColor.rgb, sc * 0.98, glassK); }`);
+    };
+    mat.customProgramCacheKey = () => 'pfSkyGlass';
+    mat.needsUpdate = true;
+  };
+  const _im = initMats;
+  initMats = function () { _im(); patchGlass(M.glass); };
+  const _sl = setupLights;
+  setupLights = function (L) { if (L && L.def) Sky.pre(L); _sl(L); if (L && L.def) Sky.post(L); };
+  const _fr = Game.frame;
+  Game.frame = function (dt, t) { Sky.tick(dt); return _fr.call(this, dt, t); };
+}
+
 boot();
 
 </script>
