@@ -9,7 +9,7 @@ const which = process.argv[2] || 'all';
   await p.goto('http://localhost:8765/test.html');
   await p.waitForFunction(() => window.__game, null, { timeout: 60000 });
   await p.waitForTimeout(1500);
-  await p.evaluate(() => { const G = window.__game; G.Store.data.unlocked = 16; G.Store.data.settings.quality = 'low'; G.Store.save(); window.dispatchEvent(new Event('resize')); G.Game.title(); });
+  await p.evaluate(() => { const G = window.__game; G.Store.data.unlocked = 20; G.Store.data.settings.quality = 'low'; G.Store.save(); window.dispatchEvent(new Event('resize')); G.Game.title(); });
   await p.waitForTimeout(800);
   await p.screenshot({ path: 'shot_title.png' });
   const levels = which === 'all' ? [0,1,2,3,4,5,6,7,8,9,10] : which.split(',').map(Number);

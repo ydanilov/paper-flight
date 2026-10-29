@@ -7518,7 +7518,7 @@ const DIARY = {
 };
 const CH = () => Store.data.choices || (Store.data.choices = {});
 const DI = () => Store.data.diary || (Store.data.diary = {});
-const diaryText = (id) => { const c = CHOICES[id], k = CH()[id]; return (DIARY[id] || '') + (c && k != null && c.opts[k] ? ' ' + c.opts[k].d : ''); };
+let diaryText = (id) => { const c = CHOICES[id], k = CH()[id]; return (DIARY[id] || '') + (c && k != null && c.opts[k] ? ' ' + c.opts[k].d : ''); };
 {
   const st = document.createElement('style');
   st.textContent = `.chs { display: flex; flex-direction: column; gap: 8px; margin-top: 8px; }
@@ -9054,6 +9054,257 @@ window.__sky = Sky;
   const _fr = Game.frame;
   Game.frame = function (dt, t) { Sky.tick(dt); return _fr.call(this, dt, t); };
 }
+
+
+// ═════════ v12: LESS CLUTTER — fewer overlapping bubbles, name tags only up close ═════════
+{
+  const _say = Person.prototype.say;
+  Person.prototype.say = function (text, dur, bg) {
+    const L = this.L, S = (L && L.S) || 1, me = this.worldPos(new V3()), cam = camera.position, d = me.distanceTo(cam);
+    const special = typeof text === 'string' && (text[0] === '✦' || this.o.boss || this.vp || this.kind === 'mia');
+    if (!special && L && L.people) {
+      let open = 0, crowd = false;
+      for (const q of L.people) { if (q === this || !(q.bubT > 0)) continue; open++; if (q.worldPos(_pw2).distanceTo(me) < 1.1 * S) crowd = true; }
+      // a busy room keeps at most four bubbles; the far-away ones and ones on top of another simply aren't spoken
+      if ((open >= 4 && d > 4 * S) || (crowd && R() < 0.75) || d > 16 * S) return;
+    }
+    return _say.call(this, text, dur, bg);
+  };
+  const _u = Person.prototype.update;
+  Person.prototype.update = function (dt, t, fl) {
+    _u.call(this, dt, t, fl);
+    if (this.tag) { const S = (this.L && this.L.S) || 1, d = this.root.getWorldPosition(_pw2).distanceTo(camera.position); const k = clamp((8 * S - d) / (2 * S), 0, 1); this.tag.visible = k > 0.02; this.tag.material.opacity = k; }
+  };
+}
+
+// ═════════ v12: HANDS & FACES — mitten hands with thumbs and a pointing finger, talking mouth shapes, lively brows ═════════
+{
+  const _P = Person;
+  Person = class extends _P {
+    constructor(L, b, x, y, z, o = {}) {
+      super(L, b, x, y, z, o);
+      for (const a of [this.aL, this.aR]) { const h = a.hand; if (!h) continue; const mat = h.material, side = a === this.aR ? 1 : -1;
+        h.geometry = PEOPLE.rbox || PG.box; h.scale.set(0.05, 0.065, 0.03); h.position.y = -0.41;
+        const th = new THREE.Mesh(PG.sph, mat); th.scale.set(0.016, 0.028, 0.016); th.position.set(-side * 0.028, -0.39, 0.012); th.rotation.z = side * 0.5; a.p.add(th); a.thumb = th;
+        const fi = new THREE.Mesh(PEOPLE.rbox || PG.box, mat); fi.scale.set(0.014, 0.05, 0.014); fi.position.set(0, -0.465, 0.01); fi.visible = false; a.p.add(fi); a.finger = fi; }
+      this.vis = 0;
+    }
+    update(dt, t, fl) {
+      super.update(dt, t, fl);
+      if (!this.mouth) return;
+      // point with a finger, wave with an open hand
+      const rk = this.state === 'react' ? this.reactKind : null;
+      if (this.aR && this.aR.finger) { this.aR.finger.visible = rk === 'point'; if (this.aL.finger) this.aL.finger.visible = false; }
+      // talking: cycle through mouth shapes, brows bob with the words, the head nods along
+      if (this.talkT > 0 && this.mouth.visible) { this.vis += dt * 11; const k = Math.floor(this.vis) % 5; const V = [[0.05, 0.018], [0.035, 0.035], [0.055, 0.012], [0.03, 0.028], [0.045, 0.024]][k];
+        this.mouth.scale.x = lerp(this.mouth.scale.x, V[0], 0.5); this.mouth.scale.y = lerp(this.mouth.scale.y, V[1], 0.5);
+        for (const b of this.brows) b.position.y += Math.sin(t * 7 + this.ph) * 0.004; this.head.rotation.x += Math.sin(t * 9 + this.ph) * 0.05; }
+    }
+  };
+}
+
+// ═════════ v12: BETTER WALKING — a few kids get up and wander between the desks ═════════
+{
+  for (const d of LEVELS) { const ob = d.build; d.build = function (L, b) { ob.call(this, L, b); if (L.outdoor || !L.dustMin) return;
+    const lo = L.dustMin, hi = L.dustMax, standers = L.people.filter((p) => p instanceof Person && p.kind === 'kid' && p.pose === 'stand' && !p.o.walk && !p.castId && !p.o.ball);
+    for (const p of standers.slice(0, 3)) { const x = p.root.position.x, z = p.root.position.z, a = R() * TAU, r = rr(1.5, 3);
+      const ax = clamp(x - Math.cos(a) * r, lo.x + 0.6, hi.x - 0.6), az = clamp(z - Math.sin(a) * r, lo.z + 0.6, hi.z - 0.6), bx = clamp(x + Math.cos(a) * r, lo.x + 0.6, hi.x - 0.6), bz = clamp(z + Math.sin(a) * r, lo.z + 0.6, hi.z - 0.6);
+      if (Math.hypot(bx - ax, bz - az) < 1) continue; p.o.walk = { a: [ax, az], b: [bx, bz], speed: rr(0.45, 0.7) }; p.pose = 'walk'; p.wp = rr(0, 2); p.home = p.home || p.root.position.clone(); }
+  }; }
+}
+
+// ═════════ v12: MAX’S REDEMPTION — once you win all three pages back he’s on your side ═════════
+const MAX_GOOD = () => Object.keys(Store.data.maxPages || {}).length >= 3;
+ROLE_IC.ally = '🤝';
+{
+  const _init = Cast.init.bind(Cast); Cast.init = function (p, id) { _init(p, id); if (id === 'max' && MAX_GOOD()) { p.role = 'ally'; Cast.mood(p); } };
+  const _mood = Cast.mood.bind(Cast); Cast.mood = function (p) { _mood(p); if (p.role !== 'ally') return; const C = CAST[p.castId]; p.tag.material.map = nameTex(`${C.n} 🤝 ♥`, '#d8f0d8'); p.tag.material.needsUpdate = true; const a = p.tag.material.map.userData.aspect || 3; p.tag.scale.set(0.16 * a, 0.16, 1); };
+  Object.assign(CAST.max, { chat: CAST.max.chat.slice() });
+  const ALLY = ['Go, Sam! I got you!', 'Clear the way — plane coming!', 'Fly, paper boy! FLY!', 'Nobody touches that plane.', 'Mia’s gonna love it.'];
+  const _attach = Class.attach.bind(Class);
+  Class.attach = function (L) { const fresh = !L._class; _attach(L); if (!fresh || !L._class) return; const mx = L.people.find((p) => p.role === 'ally'); if (!mx) return;
+    mx.o.chat = ['I gave the pages back. Don’t make it weird.', 'Sir Fluffington says hi.', 'Anyone messes with Sam, they deal with me.', 'Okay, paper planes are cool.'];
+    let cool = 3, gcool = 8;
+    L.b.dyn.push((dt, t, fl) => { const S = L.S || 1; cool -= dt; gcool -= dt; if (L.passive || !fl || fl.state !== 'fly') return;
+      // a boost when you pass him
+      if (cool <= 0 && mx.state === 'idle' && mx.worldPos(_pw2).add(v3(0, 1.2 * S, 0)).distanceTo(fl.pos) < 3.2 * S) { cool = 9; mx.say(pick(ALLY), 1.6, '#d8f0d8'); mx.act = { kind: 'gesture', t: 0, dur: 1.2 }; fl.tailT = Math.max(fl.tailT || 0, 2.5); fl.gust = Math.min(1, fl.gust + 0.3); UI.pop('Max’s boost! 🤝', 1.2); stat('maxHelps'); }
+      // in the main hall he distracts Grimsby when the net comes up near you
+      const G = L.boss && L.boss.person; if (G && G.B && G.B.st === 'wind' && gcool <= 0 && G.worldPos(_pw2).distanceTo(fl.pos) < 4 * S) { gcool = 18; G.B.st = 'stun'; G.B.t = 0; mx.say('HEY GRIMSBY! Over here!', 2, '#d8f0d8'); G.say('WHAT?! Who said that?', 1.6, '#ffd0c8'); UI.pop('Max distracted Grimsby!', 1.4); stat('maxHelps'); }
+    }); };
+  ACHS.push({ id: 'maxAlly', n: 'Unlikely friends', d: 'Get a boost from Max after winning him over', k: 'maxHelps', v: 1, ic: '🤝' });
+  const _dt = diaryText; diaryText = (id) => _dt(id) + (MAX_GOOD() && (id === 'gym' || id === 'yard') ? ' Max said “nice note”. Then he helped. What is happening.' : '');
+}
+
+// ═════════ v12: CLASS LIFE — lunch boxes & a food fight, class pet duty, exam day ═════════
+const PETSPOT = { class: [8.35, 1.15, 6.35, 'Nibbles'], lab: [3.8, 0.95, 6.1, 'Shelly'] };
+{
+  const FOOD = [0xf2c14e, 0xe94e3c, 0x9ac85a, 0xf4efe4, 0xd8904a];
+  const _attach = Class.attach.bind(Class);
+  Class.attach = function (L) {
+    const fresh = !L._class; _attach(L); if (!fresh || !L._class) return; const C = L._class, id = L.def.id;
+    // lunch: everyone sitting in the canteen gets a lunch box
+    if (id === 'canteen') for (const p of L.people) if (p instanceof Person && p.kind === 'kid' && p.pose === 'sit' && R() < 0.8) { const box = new THREE.Mesh(PEOPLE.rbox || PG.box, toon(pick(['#3d8ac9', '#e94e3c', '#4aa36a', '#b088d8', '#f2c14e']), { rough: 0.4 })); box.scale.set(0.2, 0.1, 0.14); box.position.set(0, 0.42, 0.34); p.root.add(box); p.lunch = true; }
+    C.food = null; C.petT = rr(14, 24); C.exam = !L.passive && id === 'class' && !C.sub && R() < 0.3 ? { noise: 0, look: 0, phase: 'down', T: rr(5, 8), cheat: 0 } : null;
+    if (C.exam) { for (const p of L.people) if (p instanceof Person && p.kind === 'kid' && p.pose === 'sit') p.roleOv = { o: POSE.write, t: 9999 }; if (L._social) L._social.cool = 9999; C.cool = 9999; C.cool2 = 9999; C.quizT = 9999; C.drill = null; }
+  };
+  const _tick = Class.tick.bind(Class);
+  Class.tick = function (L, dt, t, fl) {
+    _tick(L, dt, t, fl); const C = L._class, S = L.S || 1, id = L.def.id, playing = Game.level === L && Game.mode === 'play' && !L.passive && !Game.mp;
+    const ppl = L.people.filter((p) => p instanceof Person), teacher = ppl.find((p) => p.teacher), kids = ppl.filter((p) => p.kind === 'kid');
+    // food fight: fly fast past a lunch box and it might kick off
+    if (id === 'canteen' && !C.food && playing && fl.state === 'fly' && fl.vel.length() > fl.P.cruise * ARC.speed * 1.05) { const k = kids.find((p) => p.lunch && p.state === 'idle' && p.worldPos(_pw2).add(v3(0, 0.9 * S, 0)).distanceTo(fl.pos) < 1.3 * S);
+      if (k && R() < 0.02) { C.food = { t: 0, n: 0 }; this.say(k, 'FOOD FIGHT!', '#fff3c4', 'gesture'); UI.big('FOOD FIGHT!', 1.4); stat('foodFights'); checkAch(); } }
+    if (C.food) { const F = C.food; F.t += dt;
+      if (F.t < 11 && R() < dt * 5) { const thr = pick(kids.filter((p) => p.lunch)), tgt = pick(kids); if (thr && tgt && thr !== tgt) { this.pose(thr, POSE.flick, 0.5); const atPlane = R() < 0.2 && fl.state === 'fly'; const to = atPlane ? fl.pos.clone() : tgt.head.getWorldPosition(new V3());
+        this.ball(L, thr, to, () => { if (atPlane) { if (fl.state === 'fly' && fl.pos.distanceTo(to) < 0.5 * S && fl.knock(v3(rr(-0.5, 0.5), 0.6, rr(-0.5, 0.5)), 4, 'Splat! Mashed potato!', L.D, L.fxCb, 0.3)) { fl.wet = Math.min(0.6, (fl.wet || 0) + 0.3); } } else { if (tgt.state === 'idle') tgt.startReact(R() < 0.5 ? 'duck' : 'laugh', fl, true); bursts.emit(to, 8, pick(FOOD), 1.2, -1); } });
+        const bl = C.balls[C.balls.length - 1]; if (bl) bl.m.material = toon('#' + new THREE.Color(pick(FOOD)).getHexString(), { rough: 0.7 }); } }
+      if (F.t > 4 && F.t - dt <= 4 && teacher) this.say(teacher, 'STOP THAT THIS INSTANT!', '#e4ecff', 'gesture');
+      if (F.t > 11 && F.t - dt <= 11 && teacher) this.say(teacher, 'Everyone. Mops. NOW.', '#e4ecff', 'gesture');
+      if (F.t > 13) C.food = null; }
+    // class pet duty: a kid feeds Nibbles or Shelly now and then
+    const spot = PETSPOT[id]; if (spot && !C.exam) { C.petT -= dt; if (C.petT <= 0) { C.petT = rr(30, 50); const k = kids.filter((p) => this.free(p)).sort((a, b2) => a.root.position.distanceTo(v3(spot[0], 0, spot[2])) - b2.root.position.distanceTo(v3(spot[0], 0, spot[2])))[0];
+      if (k) { const at = v3(spot[0] * S, spot[1] * S, spot[2] * S); this.say(k, pick([`My turn to feed ${spot[3]}!`, `Dinner time, ${spot[3]}!`, `Who’s hungry? ${spot[3]} is!`]), '#f4fff0'); Social.face(k, { worldPos: (v) => v.copy(at), root: { scale: { x: 1 } } });
+        this.later(L, 1.0, () => { this.pose(k, POSE.flick, 0.6); this.ball(L, k, at, () => { bursts.emit(at, 10, id === 'lab' ? 0x8ac85a : 0xd8b86a, 0.8, -1); Audio.tone(1800, 0.06, 'sine', 0.04); const near = this.near(L, k, 3, (q) => q !== k && q.kind === 'kid' && this.free(q)); if (near) this.say(near, pick(['Aww, look at him eat!', 'So cute!', 'Can I hold him?']), '#f4fff0'); }); const bl = C.balls[C.balls.length - 1]; if (bl) bl.m.material = toon(id === 'lab' ? '#7ab84a' : '#d8b86a'); stat('petFed'); }); } } }
+    // exam day: the teacher looks up from the desk now and then — any noise in their view and you're caught
+    if (C.exam && playing) { const E = C.exam; E.T -= dt;
+      if (!E.intro) { E.intro = true; if (teacher) this.say(teacher, 'Exam. Pens down at the bell. Not. One. Sound.', '#e4ecff', 'gesture'); UI.toast('📝 Exam day! Fly quietly — slow, no bumps — and stay out of sight when the teacher looks up.', 4); }
+      const spd = fl.vel.length(), loud = fl.state === 'fly' && spd > fl.P.cruise * ARC.speed * 1.2; E.noise = clamp(E.noise + (loud ? dt * 0.5 : -dt * 0.25), 0, 1.2);
+      if (E.phase === 'down' && (E.T <= 0 || E.noise > 1)) { E.phase = 'warn'; E.T = 0.8; if (teacher) teacher.say(E.noise > 1 ? 'Who is making that NOISE?' : 'Hmm…?', 1.2, '#e4ecff'); }
+      else if (E.phase === 'warn' && E.T <= 0) { E.phase = 'look'; E.T = 2.6; }
+      else if (E.phase === 'look') { if (teacher && fl.state === 'fly' && fl.inv <= 0) { teacher.lookAt = fl.pos.clone(); teacher.lookT = 0.3; const tp = teacher.head.getWorldPosition(new V3()), dir = new V3(Math.sin(teacher.root.rotation.y), 0, Math.cos(teacher.root.rotation.y)), to = fl.pos.clone().sub(tp), dd = to.length();
+          if (dd < 8 * S && dir.dot(to.normalize()) > 0.55 && (loud || E.noise > 0.6)) { E.phase = 'down'; E.T = rr(5, 8); E.noise = 0; teacher.say(pick(['CAUGHT. Confiscated!', 'I SAW that, Sam.']), 1.6, '#e4ecff'); fl.knock(v3(0, 1, 0), 5, 'Caught during the exam!', L.D, L.fxCb, 0.8); stat('examCaught'); } }
+        if (E.T <= 0) { E.phase = 'down'; E.T = rr(5, 8); } }
+      // cheat notes: Jake wants Priya's answers — pick up from Priya, drop at Jake, unseen
+      const jk = ppl.find((p) => p.castId === 'jake'), pr = ppl.find((p) => p.castId === 'priya');
+      if (jk && pr && E.cheat < 2 && fl.state === 'fly') { const tgt = E.cheat === 0 ? pr : jk; if (tgt.worldPos(_pw2).add(v3(0, 1.0 * S, 0)).distanceTo(fl.pos) < 1.2 * S) {
+          if (E.cheat === 0) { E.cheat = 1; pr.say('(whisper) Answers. Don’t tell.', 1.6); UI.pop('picked up the cheat sheet', 1.2); }
+          else { E.cheat = 2; jk.say('(whisper) You legend.', 1.6, '#fff3c4'); UI.big('Cheat sheet delivered!', 1.2); Game.addScore(600, 'cheat sheet'); stat('cheats'); checkAch(); } }
+        if (E.cheat === 0 && !E.asked && Game.runT > 6) { E.asked = true; jk.say('(whisper) Psst! Get me Priya’s answers!', 2.2, '#fff3c4'); } }
+    }
+  };
+  // recess games in the sunny schoolyard: tag, hopscotch and skipping rope
+  const YD = LEVELS.find((q) => q.id === 'yard'), oyb = YD.build;
+  YD.build = function (L, b) { oyb.call(this, L, b); if (L.def.id !== 'yard') return;
+    // hopscotch squares chalked on the asphalt
+    const chalk = toon('#f6f4ee', { rough: 1 }); const HX = 14, HZ = 3;
+    for (let i = 0; i < 8; i++) { const dz = i * 0.62, dbl = i === 3 || i === 6; for (const dx of dbl ? [-0.32, 0.32] : [0]) { b.aabb(HX + dx - 0.3, 0.013, HZ + dz - 0.3, HX + dx + 0.3, 0.016, HZ + dz - 0.27, chalk, { collide: false }); b.aabb(HX + dx - 0.3, 0.013, HZ + dz + 0.27, HX + dx + 0.3, 0.016, HZ + dz + 0.3, chalk, { collide: false }); b.aabb(HX + dx - 0.3, 0.013, HZ + dz - 0.3, HX + dx - 0.27, 0.016, HZ + dz + 0.3, chalk, { collide: false }); b.aabb(HX + dx + 0.27, 0.013, HZ + dz - 0.3, HX + dx + 0.3, 0.016, HZ + dz + 0.3, chalk, { collide: false }); } }
+    const hop = kid(L, b, HX, HZ - 0.6, 0, { react: ['cheer'], chat: ['One, two, three…', 'Don’t step on the line!', 'My turn next!'] });
+    b.update((dt, t) => { if (hop.state !== 'idle') return; const k = (t * 0.7) % 1, i = Math.floor(((t * 0.7) % 9)); hop.root.position.z = HZ - 0.6 + Math.min(i, 8) * 0.62; hop.root.position.y = Math.abs(Math.sin(t * 0.7 * Math.PI * 2)) * 0.25; hop.roleOv = { o: { tL: -0.6, kL: 1.2, aLx: -0.6, aRx: -0.6 }, t: 0.2 }; if (i === 8) hop.root.rotation.y = Math.PI; else hop.root.rotation.y = 0; });
+    // skipping rope: two turners and a jumper
+    const RX = -4, RZ = 2; const t1 = kid(L, b, RX - 1.4, RZ, Math.PI / 2, {}), t2 = kid(L, b, RX + 1.4, RZ, -Math.PI / 2, {}), jp = kid(L, b, RX, RZ, 0, { react: ['cheer'], chat: ['Cinderella, dressed in yella…', 'Faster!', 'I can do a hundred!'] });
+    const rope = new THREE.Mesh(new THREE.TorusGeometry(1.35, 0.012, 4, 24, Math.PI), toon('#e94e3c')); rope.position.set(RX, 0.95, RZ); L.group.add(rope);
+    b.update((dt, t) => { const a = t * 5; rope.rotation.set(a, 0, 0); rope.rotation.order = 'XYZ'; for (const [p, s] of [[t1, 1], [t2, -1]]) if (p.state === 'idle') p.roleOv = { o: { aRx: -1.4 + Math.sin(a) * 0.5, aRz: -0.2 * s }, t: 0.2 }; if (jp.state === 'idle') { jp.root.position.y = Math.max(0, Math.sin(a + 1.3)) * 0.3; jp.roleOv = { o: { kL: 0.6, kR: 0.6, aLx: -0.4, aRx: -0.4 }, t: 0.2 }; } });
+    // tag: one kid is "it" and chases the others round the oak-side field
+    const TX = 0, TZ = 22, ring = [kid(L, b, TX + 3, TZ, 0, {}), kid(L, b, TX - 3, TZ, 0, {}), kid(L, b, TX, TZ + 3, 0, {})];
+    let it = 0, ph = [0, 2.1, 4.2], cool = 0;
+    b.update((dt, t) => { cool -= dt; ring.forEach((p, i) => { if (p.state !== 'idle') return; ph[i] += dt * (i === it ? 0.9 : 0.75); const r = 3 + Math.sin(t * 0.7 + i) * 0.6, x = TX + Math.cos(ph[i]) * r, z = TZ + Math.sin(ph[i]) * r; const lp = p.root.position; const dx = x - lp.x, dz = z - lp.z; lp.x = x; lp.z = z; p.root.rotation.y = p.yaw = Math.atan2(dx, dz);
+        p.roleOv = { o: { tL: Math.sin(t * 11 + i) * 0.7, tR: -Math.sin(t * 11 + i) * 0.7, kL: Math.max(0, Math.sin(t * 11 + i)) * 0.9, kR: Math.max(0, -Math.sin(t * 11 + i)) * 0.9, aLx: -Math.sin(t * 11 + i) * 0.7, aRx: Math.sin(t * 11 + i) * 0.7 }, t: 0.2 }; });
+      const c = ring[it]; for (let j = 0; j < 3; j++) if (j !== it && cool <= 0 && c.root.position.distanceTo(ring[j].root.position) < 0.7) { cool = 2; c.say('Tag! You’re it!', 1.4, '#fff3c4'); ring[j].say(pick(['Nooo!', 'Not fair!', 'I’ll get you!']), 1.2); it = j; } });
+    L.chatter = (L.chatter || []).concat(['Tag, you’re it!', 'Rope’s free!', 'Hopscotch champion!', 'Recess is too short']);
+  };
+  ACHS.push({ id: 'foodfight', n: 'Mashed potato war', d: 'Start a food fight in the canteen', k: 'foodFights', v: 1, ic: '🥔' }, { id: 'cheat', n: 'The answers, please', d: 'Deliver a cheat sheet on exam day without being caught', k: 'cheats', v: 1, ic: '📝' });
+}
+
+// ═════════ v12: REPORT CARDS — a grade for every classmate, and one for Sam ═════════
+const REPORT = {
+  jake: ['Laughs at every one of Sam’s flybys. A future comedian.', 'Talks through every lesson. Mostly jokes.', 'Pranks Sam daily. Must try harder at being nice.'],
+  priya: ['Calculated Sam’s glide ratio for fun. Brilliant.', 'Knows everything. Shares most of it.', 'Has corrected Sam 47 times this week.'],
+  zoe: ['Mia’s best friend and Sam’s biggest supporter.', 'Protective. Watchful. Approves, cautiously.', 'Keeps Mia away from Sam’s “nonsense”.'],
+  leo: ['Gave up catching the plane. Now just admires it.', 'Still trying to catch the plane.', 'Caught the plane. Kept the plane.'],
+  tom: ['Woke up specially to watch Sam fly.', 'Asleep. Pleasant, when awake.', 'Snored through Sam’s best flight.'],
+  ana: ['Has drawn Sam’s plane 60 times. All framed.', 'Paints everything. Including the hamster.', 'Painted a moustache on Sam’s plane.'],
+  ollie: ['Folded his own plane. It flew! (A bit.)', 'Shy. Waves at the plane when nobody looks.', 'Hid under his desk all week.'],
+  nina: ['Settled in fast. Thinks this is the best school ever.', 'Still finding her way round. And the planes.', 'Misses her old school. The one without planes.'],
+  ben: ['Designed a propeller for Sam. It works backwards.', 'Took apart the pencil sharpener. Again.', 'Built a plane-catching net. Confiscated.'],
+  rosa: ['Wrote a front-page story about Sam. Five stars.', 'Always looking for a scoop.', 'Headline: SAM CRASHES. Again.'],
+  max: ['Gave the pages back. Helps Sam now. Who knew?', 'Less flicking. Some improvement.', 'Flicks paper. Steals notes. Detention pending.'],
+  emma: ['Gave Sam a gold star. Her highest honour.', 'Hand always up. Answers always right.', 'Told on Sam four times. For “littering”.'],
+};
+{
+  const grade = (v) => (v >= 5 ? 'A+' : v >= 3 ? 'A' : v >= 1 ? 'B' : v >= 0 ? 'C' : v >= -1 ? 'D' : 'F');
+  const _nb = Game.notebook;
+  Game.notebook = function () { _nb.call(this); const nb = document.querySelector('#scr .nb'); if (!nb) return;
+    const rows = Object.keys(REPORT).filter((k) => CAST[k]).map((k) => { const v = k === 'max' && MAX_GOOD() ? Math.max(relOf(k), 3) : relOf(k), g = grade(v), c = REPORT[k][v >= 1 ? 0 : v >= 0 ? 1 : 2]; return `<div class="rc"><b>${CAST[k].n}</b><span class="g g${g[0]}">${g}</span><i>${c}</i></div>`; }).join('');
+    const S2 = ST(), best = Store.data.best || {}, golds = Object.values(best).filter((b2) => b2.medal === 'gold').length, favours = Object.keys(Store.data.quests || {}).length, secrets = Object.keys(Store.data.secrets || {}).length;
+    const sam = [['Flying', golds >= 10 ? 'A+' : golds >= 5 ? 'A' : golds >= 2 ? 'B' : 'C', `${golds} gold medals`], ['Kindness', favours >= 8 ? 'A' : favours >= 4 ? 'B' : 'C', `${favours} favours done`], ['Curiosity', secrets >= 6 ? 'A+' : secrets >= 2 ? 'B' : 'C', `${secrets} secret rooms found`], ['Behaviour', (S2.crashes || 0) < 20 ? 'B' : 'D', `${S2.crashes || 0} crashes. Mostly into walls.`]]
+      .map(([s, g, c]) => `<div class="rc"><b>${s}</b><span class="g g${g[0]}">${g}</span><i>${c}</i></div>`).join('');
+    nb.insertAdjacentHTML('afterend', `<div class="paper ovhs"><div class="ovt">Report cards <span>end of the week, from what your classmates think of you</span></div><div class="rcs"><div class="rch">Sam</div>${sam}<div class="rch">The class</div>${rows}</div><div class="rcsig">Signed: Principal Grimsby (reluctantly)</div></div>`); };
+  const st = document.createElement('style'); st.textContent = `.rcs { display: grid; gap: 2px; } .rc { display: grid; grid-template-columns: 7.5em 2.6em 1fr; gap: 10px; align-items: baseline; line-height: 32px; min-width: 0; } .rc b { font-family: var(--f-ui); font-size: 15px; } .rc i { font-family: var(--f-hand); font-style: normal; font-size: 19px; color: #22305a; line-height: 22px; min-width: 0; }
+    .rc .g { font-family: var(--f-hand); font-size: 28px; text-align: center; color: var(--margin); } .rc .gA { color: #2f8a4a; } .rc .gB { color: #3d6fb4; } .rc .gC { color: var(--ink-2); } .rch { font-family: var(--f-ui); font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--margin); margin-top: 8px; line-height: 32px; }
+    .rcsig { font-family: var(--f-hand); font-size: 20px; color: var(--ink-2); text-align: right; margin-top: 6px; transform: rotate(-2deg); } @media (max-width: 520px) { .rc { grid-template-columns: 6em 2.2em 1fr; } }`; document.head.appendChild(st);
+}
+
+// ═════════ v12: BONUS · DETENTION ═════════
+EXTRA_NAMES.grimsby2 = 'Principal Grimsby';
+const DET_LEVEL = {
+  id: 'detention', name: 'Detention', place: 'Monday · 4:05 pm · room 13', seed: 197, gold: 60, silver: 100, bonus: true, ceil: 4,
+  story: ['Monday. 4:05 pm. Room 13. Detention.', 'Sam, Jake and Max. One hour. Principal Grimsby is reading the paper.', 'Every so often he looks up. If he sees the plane, that’s another hour.', 'Pass the notes, run the rings, and slip out through the transom window.'],
+  outro: 'Grimsby turns the page. Three empty desks. He doesn’t look up. Yet.',
+  build(L, b) {
+    const X0 = -6, X1 = 6, Z0 = -5, Z1 = 5, H = 4;
+    L.sun = { dir: v3(0.8, 0.5, -0.4), color: 0xffc888, intensity: 2.6 }; L.center = v3(0, 1.6, 0); L.span = 20; L.hemi = { sky: 0xe8d8c0, ground: 0x5a4a3a, intensity: 1.0 }; L.grade = 'evening';
+    const wins = [[-3.5, -1.5], [1.5, 3.5]];
+    room(b, { x0: X0, x1: X1, z0: Z0, z1: Z1, h: H, wall: toon('#ffffff', { map: TEX.plaster('#cfc8b0') }), floor: toon('#ffffff', { map: TEX.tiles('#b8ae98', '#a89e88', 3) }), floorUV: 1.5,
+      holes: { '+x': wins.map(([a0, a1]) => ({ a0, a1, y0: 1.0, y1: 3.0 })), '-z': [{ a0: -0.7, a1: 0.7, y0: 2.6, y1: 3.4 }] } });
+    for (const [a0, a1] of wins) { const cs = windowFrame(b, '+x', [X1, X1 + 0.3], a0, a1, 1.0, 3.0, { cols: 2, rows: 2 }); addShaft(L, cs, 9); }
+    windowFrame(b, '-z', [Z0 - 0.3, Z0], -0.7, 0.7, 2.6, 3.4, { cols: 1, rows: 1, open: 0 }); b.aabb(-0.6, 0, Z0 + 0.0, 0.6, 2.4, Z0 + 0.04, M.woodLight); b.box(0.42, 1.1, Z0 + 0.05, 0.08, 0.04, 0.04, M.steel, { collide: false });
+    room(b, { x0: -1.5, x1: 1.5, z0: -8, z1: Z0 - 0.3, h: 3.6, skip: ['+z'] }); sign(b, 0, 3.55, Z0 + 0.02, 0, 'ROOM 13 · DETENTION', 1.6, 0.26, '#7a2a2a');
+    // the chalkboard says it all
+    b.box(0, 1.0, Z1 - 0.06, 4.6, 1.7, 0.06, M.woodDark, { collide: false }); b.decal(0, 1.85, Z1 - 0.1, 4.4, 1.55, toon('#ffffff', { map: canvasTex(1024, 360, (g, w, h) => { g.fillStyle = '#2f5a3e'; g.fillRect(0, 0, w, h); g.fillStyle = 'rgba(245,245,235,0.9)'; g.font = `58px ${FONT_HAND}`; for (let i = 0; i < 5; i++) g.fillText('I will not fly paper in school.', 40, 70 + i * 62); }, { repeat: false }) }), { ry: Math.PI });
+    wallClock(b, 3.4, 3.2, Z1 - 0.05, Math.PI);
+    // Grimsby's desk at the front with the newspaper
+    b.push(0, 0, 3.4, 0); b.box(0, 0.74, 0, 2.0, 0.06, 0.9, M.woodDark); b.box(-0.85, 0, 0, 0.3, 0.74, 0.85, M.woodDark); b.box(0.85, 0, 0, 0.3, 0.74, 0.85, M.woodDark); b.cyl(0.6, 0.8, -0.2, 0.05, 0.12, toon('#f4efe4'), { seg: 10, collide: false }); b.pop();
+    chair(b, 0, 4.2, Math.PI, { wood: M.woodDark });
+    const G = adult(L, b, 0, 4.2, Math.PI, { pose: 'sit', seatY: 0.45, hair: 'bald', glasses: true, coat: true, coatC: '#3a3f4c', shirt: '#f4f1ea', pants: '#2a2d36', scale: 1.45, react: ['point'], lines: { point: ['I SAW that.'] }, chat: ['Hmm. Interesting.', '*turns page*', 'Hmph.', 'Kids today…'] });
+    G.who = 'grimsby2'; { const tag = new THREE.Sprite(new THREE.SpriteMaterial({ map: nameTex('Principal Grimsby', '#ffd0c8'), transparent: true, depthWrite: false })); tag.renderOrder = 9; const a = tag.material.map.userData.aspect || 4; tag.scale.set(0.12 * a, 0.12, 1); tag.position.y = 1.45; G.root.add(tag); G.tag = tag; }
+    const paper = new THREE.Mesh(new THREE.PlaneGeometry(0.5, 0.36), toon('#ffffff', { map: TEX.paper('news'), side: THREE.DoubleSide })); paper.position.set(0, 0.95, 0.32); G.root.add(paper);
+    // the gaze cone shows when he looks up
+    const cone = new THREE.Mesh(new THREE.ConeGeometry(2.6, 6, 24, 1, true), new THREE.MeshBasicMaterial({ color: 0xfff0a0, transparent: true, opacity: 0, depthWrite: false, side: THREE.DoubleSide, blending: THREE.AdditiveBlending }));
+    cone.rotation.x = Math.PI / 2; cone.position.set(0, 1.1, -3); G.root.add(cone);
+    // detention desks: Sam's (empty), Jake's, Max's
+    const desks = [[-3, 0], [0, 0], [3, 0], [-3, -2.6], [0, -2.6], [3, -2.6]];
+    for (const [x, z] of desks) { desk(b, x, z, 0); chair(b, x, z - 0.6, 0, { wood: M.woodDark }); }
+    seated(L, b, -3, -0.6, 0, { seatY: 0.45 }); seated(L, b, 3, -0.6, 0, { seatY: 0.45 }); // cast fills these: Jake, Max
+    for (let i = 0; i < 3; i++) b.box(rr(-4, 4), 0.01, rr(-4, 2), 0.2, 0.002, 0.28, M.paper, { ry: rr(0, 3), collide: false });
+    let st = 'read', T = rr(5, 8), cool = 0;
+    b.update((dt, t, fl) => {
+      const S = L.S || 1; T -= dt; cool -= dt;
+      if (st === 'read') { cone.material.opacity = 0; paper.position.y = 0.95; if (T <= 0) { st = 'warn'; T = 0.9; if (!L.passive) { G.say('Hmm…?', 0.9, '#ffd0c8'); Audio.noiseHit(0.2, 2500, 0.08, 1.2); } } }
+      else if (st === 'warn') { paper.position.y = lerp(0.95, 0.7, 1 - T / 0.9); cone.material.opacity = 0.05 * (1 - T / 0.9); if (T <= 0) { st = 'look'; T = rr(2.2, 3.2); } }
+      else if (st === 'look') { paper.position.y = 0.7; cone.material.opacity = 0.1 + Math.sin(t * 8) * 0.02;
+        if (!L.passive && fl.state === 'fly' && fl.inv <= 0 && cool <= 0) { const hp = G.head.getWorldPosition(new V3()), dir = new V3(Math.sin(G.root.rotation.y), 0, Math.cos(G.root.rotation.y)), to = fl.pos.clone().sub(hp), d = to.length();
+          if (d < 9 * S && dir.dot(to.normalize()) > 0.62) { cool = 2.5; G.say(pick(['DETENTION! Another hour!', 'I SAW that, Sam!', 'Is that… a PLANE?!']), 1.6, '#ffd0c8'); if (L.D && (L.D.name === 'Easy' || L.D.name === 'Practice')) fl.knock(v3(0, 1, -1), 6, 'Spotted by Grimsby!', L.D, L.fxCb, 1); else fl.crash('Spotted by Grimsby!', L.fxCb); stat('spotted'); } }
+        if (T <= 0) { st = 'read'; T = rr(5, 8); } }
+    });
+    L.chatter = ['Is it five yet?', 'This clock is broken', 'Psst', 'I can hear him breathing', 'Sir Fluffington misses me'];
+    pw(L, 'shield', -4.5, 2.4, -3.5); pw(L, 'tailwind', 4.5, 2.2, 2);
+    L.spawn = { pos: v3(0, 1.6, -4.2), yaw: 0, pitch: 0 };
+    L.stages = [
+      { kind: 'pages', text: 'Pass the 3 notes along the back row', items: [{ p: v3(-4.6, 1.6, -3.6) }, { p: v3(0, 0.95, -2.6) }, { p: v3(4.6, 1.6, -3.6) }], hint: 'When his newspaper lowers — hide behind something!' },
+      { kind: 'rings', text: 'Round the room, out of his sight', items: [{ p: v3(5, 2.6, -1), n: N(0, 0, 1), r: 0.45 }, { p: v3(4.6, 3.2, 4.2), n: N(-1, 0, 0), r: 0.45 }, { p: v3(-4.6, 3.2, 4.2), n: N(-1, 0, 0), r: 0.45 }, { p: v3(-5, 2.6, -1), n: N(0, 0, -1), r: 0.45 }] },
+      { kind: 'exit', text: 'Out through the transom window', box: box3(-0.7, 2.6, Z0 - 0.9, 0.7, 3.4, Z0 - 0.3), dir: v3(0, 0, -1), hint: 'The little window above the door is open.' },
+    ];
+    L.stars = [v3(0, 3.8, 3.4), v3(-5.6, 0.3, 4.6), v3(5.6, 3.7, -4.6)];
+    L.hints = [{ box: box3(-6, 0, 1.5, 6, 4, 5), text: 'That’s his side of the room. Only go there while he reads.' }];
+    L.startHint = 'Shh. He’s reading. For now.';
+    L.dustMin = v3(-6, 0.3, -5); L.dustMax = v3(6, 3.8, 5); L.dustN = 260;
+  },
+};
+LEVELS.push(DET_LEVEL);
+CAST_IN.detention = ['jake', 'max']; TEACH_IN.detention = [];
+QUESTS.detention = { from: 'max', to: 'jake', ask: 'Tell Jake I’m not scared.', thanks: 'Max is scared. Max is SO scared.' };
+LEVEL_CHAT.detention = ['Is it five yet?', 'He’s on the sports page', 'I can see your plane, Sam', 'Don’t laugh. DON’T laugh.', 'My foot’s asleep', 'One hour is SIXTY minutes', 'Sir Fluffington needs dinner', 'Grimsby snores?', 'This is so unfair', 'Worth it'];
+CONVOS_BY.detention = [['What are you in for?', 'Plane.', 'Same.'], ['How long left?', 'Forty-three minutes.', 'Kill me.']];
+THEMES.detention = { bpm: 64, chords: [[57, 60, 64, 67], [55, 58, 62, 65], [53, 57, 60, 64], [52, 55, 59, 62]], lead: 'sine', leadV: 0.03 };
+SPECIALS.detention = { lines: ['(whisper) Here comes Sam’s plane…', '(whisper) Pass it on!', '(whisper) A STAR? In detention?', '(whisper) He saw! He SAW!', '(whisper) …we’re free.', '(whisper) Power-up!', '(whisper) That was close!', '(whisper) Low and slow!', '(whisper) New fold. Nice.', '(whisper) Right past my ear!', '(whisper) Another star!', '(whisper) All three! Legend.', '(whisper) It turned around!', '(whisper) Crashed. Again.', '(whisper) Too fast! Too loud!', '(whisper) Good. Slow down.', '(whisper) A whole minute unseen!', '(whisper) The window! Go!', '(whisper) Combo! Don’t cheer!', '(whisper) Out of puff…'], who: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0] };
+CUTS.detention = [['grimsby2', 'One hour. In silence. I will be READING.'], ['jake', '(whisper) He reads the sports page for ages.'], ['max', '(whisper) Sam. Your plane. Do it.']];
+CHOICES.detention = { who: 'max', q: 'Max (whispering): “Sam. Your plane. Do it.”', opts: [
+  { t: '(whisper) On three.', who: 'max', r: '(whisper) Legend.', rel: { max: 1 }, d: 'Max and I planned an escape. In detention. Together.', cb: ['max', '(whisper) Go!'] },
+  { t: '(whisper) Are you crazy?', who: 'jake', r: '(whisper) Yes. Next question.', rel: { jake: 1 }, d: 'Jake says he’s crazy. I believe him.', cb: ['jake', '(whisper) Do iiit.'] },
+  { t: 'SIR, can I go to the toilet?', who: 'grimsby2', r: 'No.', rel: {}, d: 'Asked Grimsby to go to the toilet. He said no. Flew out the window instead.', cb: ['grimsby2', 'Hmm.'] }] };
+DIARY.detention = 'Detention with Jake and Max. Escaped through the transom.';
+ACHS.push({ id: 'detention', n: 'Great escape', d: 'Get out of detention', chk: () => !!Store.data.best.detention, ic: '🏫' });
+v7wireL(DET_LEVEL);
 
 boot();
 
