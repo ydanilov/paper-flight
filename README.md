@@ -2,7 +2,7 @@
 
 **A game by Diego Danylov.**
 
-Friday, 3:14 pm. Sam has written a note for Mia — but she has already left the classroom. Fold it into a paper plane and fly it through the whole school, room by room, before the last bell at 3:30. A 3D browser game made with three.js: 16 levels (9 story rooms + 7 bonus), a principal boss fight, 10 crafts, classmates who remember you, cutscenes with choices, Sam's diary, a course maker, daily flights, a marathon and 2-player split screen.
+Friday, 3:14 pm. Sam has written a note for Mia — but she has already left the classroom. Fold it into a paper plane and fly it through the whole school, room by room, before the last bell at 3:30. A 3D browser game made with three.js: 22 levels (9 story rooms + 13 bonus, including Mia’s own chapter, the school play, sports day, a field trip and the last day of school), a principal boss fight, 10 crafts, classmates who remember you, cutscenes with choices, Sam's diary, a course maker, daily flights, a marathon and 2-player split screen.
 
 ## Play
 - **Web:** https://game-paper-flight.vercel.app
@@ -19,6 +19,7 @@ Friday, 3:14 pm. Sam has written a note for Mia — but she has already left the
 | Swap craft | Q / E | LB / RB | SWAP |
 | Camera | C | Y | — |
 | Pause | Esc | Start | II |
+| Photo mode | O (then F filter, H hide plane, Enter snap) | pause menu | pause menu |
 
 Menus: arrows/WASD + Enter, Tab, mouse, gamepad or touch. On a phone, turn it sideways to fly.
 

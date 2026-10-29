@@ -4388,12 +4388,12 @@ const Game = {
   settings(from = 'title') {
     UI.state = 'settings'; const S = Store.data.settings;
     const opt = { pitch: { flight: 'Inverted — pull back to climb', arcade: 'Standard — push up to climb' }, difficulty: { easy: 'Easy — bumps never break it', normal: 'Normal — hard hits crumple it', hard: 'Hardcore — any touch ends it' },
-      cam: { 0: 'Chase', 1: 'Far chase', 2: 'Nose' }, flight: { arcade: 'Arcade — easy to fly', glider: 'Glider — real physics' }, ctrlBar: { true: 'On', false: 'Off' }, speed: { slow: 'Slow', normal: 'Normal', fast: 'Fast' }, quality: { auto: 'Auto', low: 'Low', med: 'Medium', high: 'High' }, season: { auto: 'Auto (by date)', autumn: 'Autumn', winter: 'Winter', spring: 'Spring' }, rumble: { true: 'On', false: 'Off' }, ghost: { true: 'On', false: 'Off' }, sens: { low: 'Low', normal: 'Normal', high: 'High' } };
+      cam: { 0: 'Chase', 1: 'Far chase', 2: 'Nose' }, flight: { arcade: 'Arcade — easy to fly', glider: 'Glider — real physics' }, ctrlBar: { true: 'On', false: 'Off' }, speed: { slow: 'Slow', normal: 'Normal', fast: 'Fast' }, quality: { auto: 'Auto', low: 'Low', med: 'Medium', high: 'High' }, season: { auto: 'Auto (by date)', autumn: 'Autumn', winter: 'Winter', spring: 'Spring' }, pet: { on: 'Nibbles rides along', off: 'Off' }, rumble: { true: 'On', false: 'Off' }, ghost: { true: 'On', false: 'Off' }, sens: { low: 'Low', normal: 'Normal', high: 'High' } };
     const pct = (v) => `${Math.round(v * 100)}%`;
     const row = (key, label, val) => `<button class="btn" data-nav data-lr="set" data-act="setNext" data-k="${key}"><span>${label}</span><span class="val"><span class="arr">‹</span>${val}<span class="arr">›</span></span></button>`;
     UI.show(`<div class="panel" style="align-items:flex-start"><div class="panel-head"><h2>Settings</h2><span class="sub">← → to change</span></div><div class="rows">
       ${row('flight', 'Flying', opt.flight[S.flight])}${row('speed', 'Speed (arcade)', opt.speed[S.speed])}${row('pitch', 'Pitch', opt.pitch[S.pitch])}${row('sens', 'Stick sensitivity', opt.sens[S.sens])}${row('difficulty', 'Difficulty', opt.difficulty[S.difficulty])}${row('cam', 'Camera', opt.cam[S.cam])}
-      ${row('music', 'Music', pct(S.music))}${row('sfx', 'Effects', pct(S.sfx))}${row('rumble', 'Rumble', opt.rumble[S.rumble])}${row('ctrlBar', 'Controls bar', opt.ctrlBar[S.ctrlBar])}${row('ghost', 'Ghost of best run', opt.ghost[S.ghost])}${row('quality', 'Graphics', opt.quality[S.quality])}${row('season', 'Season', opt.season[S.season || 'auto'])}
+      ${row('music', 'Music', pct(S.music))}${row('sfx', 'Effects', pct(S.sfx))}${row('rumble', 'Rumble', opt.rumble[S.rumble])}${row('ctrlBar', 'Controls bar', opt.ctrlBar[S.ctrlBar])}${row('ghost', 'Ghost of best run', opt.ghost[S.ghost])}${row('quality', 'Graphics', opt.quality[S.quality])}${row('season', 'Season', opt.season[S.season || 'auto'])}${row('pet', 'Hamster co-pilot', opt.pet[S.pet || 'on'])}
       <button class="btn small" data-nav data-act="${from === 'pause' ? 'pauseMenu' : 'title'}" style="margin-top:6px">← Back</button></div></div>`, 'center scrim-full');
     UI.items.forEach((e) => (e.querySelector('.val') || {}).style && 0);
     UI.cols = 1; UI.back = () => (from === 'pause' ? this.pauseMenu() : this.title()); this._setFrom = from;
@@ -4637,7 +4637,7 @@ Game.acts = {
   skin: (el) => { const s = SKINS.find((q) => q.id === el.dataset.k); if (!skinOpen(s)) { UI.toast(`${s.name}: ${skinLockText(s)}`); return; } Store.data.skin = s.id; Store.save(); const f = UI.focus; Game.hangar(); UI.setFocus(f, true); },
   set: (el, d) => {
     const S = Store.data.settings, k = el.dataset.k;
-    const cyc = { speed: ['slow', 'normal', 'fast'], flight: ['arcade', 'glider'], pitch: ['arcade', 'flight'], sens: ['low', 'normal', 'high'], difficulty: ['easy', 'normal', 'hard'], cam: [0, 1, 2], quality: ['auto', 'low', 'med', 'high'], season: ['auto', 'autumn', 'winter', 'spring'], rumble: [true, false], ctrlBar: [true, false], ghost: [true, false] };
+    const cyc = { speed: ['slow', 'normal', 'fast'], flight: ['arcade', 'glider'], pitch: ['arcade', 'flight'], sens: ['low', 'normal', 'high'], difficulty: ['easy', 'normal', 'hard'], cam: [0, 1, 2], quality: ['auto', 'low', 'med', 'high'], season: ['auto', 'autumn', 'winter', 'spring'], pet: ['on', 'off'], rumble: [true, false], ctrlBar: [true, false], ghost: [true, false] };
     if (cyc[k]) { const a = cyc[k]; S[k] = a[(a.indexOf(S[k]) + d + a.length) % a.length]; }
     else S[k] = Math.round(clamp(S[k] + d * 0.1, 0, 1) * 10) / 10;
     Store.save(); Audio.setVolumes(); if (k === 'quality') resize();
@@ -9305,6 +9305,520 @@ CHOICES.detention = { who: 'max', q: 'Max (whispering): “Sam. Your plane. Do i
 DIARY.detention = 'Detention with Jake and Max. Escaped through the transom.';
 ACHS.push({ id: 'detention', n: 'Great escape', d: 'Get out of detention', chk: () => !!Store.data.best.detention, ic: '🏫' });
 v7wireL(DET_LEVEL);
+
+
+// ═════════ v13: shared bits — must-say bubbles, the album, level overrides ═════════
+{ const _s = Person.prototype.say; Person.prototype.say = function (t, d, bg) { if (!this._must) return _s.call(this, t, d, bg); const k = this.kind; this.kind = 'mia'; try { return _s.call(this, t, d, bg); } finally { this.kind = k; } }; }
+const mustSay = (p, t, d, bg) => { if (!p) return; p._must = true; try { p.say(t, d || Math.max(1.6, 0.8 + t.length * 0.055), bg); } finally { p._must = false; } };
+const vanish = (L, p) => { if (!p) return; p.root.visible = false; if (p.obb) p.obb.off = true; if (L.people) L.people = L.people.filter((q) => q !== p); if (L.miaG === p) L.miaG = null; };
+const castIds = () => Object.keys(CAST);
+EXTRA_NAMES.photog = 'The photographer';
+{ const _st = Game.settings; Game.settings = function () { if (Store.data && Store.data.settings.pet == null) Store.data.settings.pet = 'on'; return _st.apply(this, arguments); }; }
+// Sam's album: small JPEGs from photo mode and class photos (kept to 12 so the save stays small)
+const Album = {
+  list() { return Store.data.photos || (Store.data.photos = []); },
+  add(src, cap, tag) { const a = this.list(); a.unshift({ src, cap, tag: tag || '', at: Date.now() }); while (a.length > 12) a.pop(); stat('photos'); Store.save(); },
+  grab(w = 384, q = 0.72) { const c = renderer.domElement; const cv = document.createElement('canvas'); cv.width = w; cv.height = Math.max(1, Math.round(c.height * w / c.width)); cv.getContext('2d').drawImage(c, 0, 0, cv.width, cv.height); return cv.toDataURL('image/jpeg', q); },
+};
+// some levels fly a set plane (Mia folds with her own paper; the play needs a dragon)
+const FORCE_FOLD = { mia: { skin: 'hearts' }, play: { plane: 'dragon' } };
+{ const _ll = Game.loadLevel; Game.loadLevel = function (i, attract) { const def = typeof i === 'number' ? LEVELS[i] : i, ov = def && FORCE_FOLD[def.id]; if (!ov || attract) return _ll.call(this, i, attract);
+  const sp = Store.data.plane, sk = Store.data.skin; if (ov.plane && PLANES[ov.plane]) Store.data.plane = ov.plane; if (ov.skin) Store.data.skin = ov.skin; try { return _ll.call(this, i, attract); } finally { Store.data.plane = sp; Store.data.skin = sk; } }; }
+const CLASS_DEF = LEVELS.find((D) => D.id === 'class');
+const twoLevelSky = (id, k) => { SKY_OF[id] = k; };
+
+// ═════════ v13: BONUS · MIA’S CHAPTER (Friday morning, from her side) ═════════
+const MIA_LEVEL = {
+  id: 'mia', name: 'Mia’s Morning', place: 'Friday · 8:12 am · Classroom 5B', seed: 211, gold: 52, silver: 85, bonus: true, ceil: CLASS_DEF.ceil,
+  story: ['Friday. 8:12 am. Mia is first in class. As always.', 'She wrote Sam a note last night. Rewrote it four times.', 'Sam sits by the door. He’s late. As always.', 'One lap of the room, then land it on his desk before anyone notices.'],
+  outro: 'The note lands in Sam’s desk. He won’t find it until Monday. Typical.',
+  build(L, b) {
+    CLASS_DEF.build.call(this, L, b);
+    L.sun = Object.assign({}, L.sun || {}, { color: 0xfff1dc }); if (L.sun.intensity) L.sun.intensity *= 0.9; L.grade = 'day';
+    vanish(L, L.miaG);
+    for (const p of (L.people || []).slice()) if (p.kind === 'mia' || p.o && p.o.kind === 'mia') vanish(L, p);
+    // Sam's desk is empty — he's late
+    const SDX = -5.2, SDZ = -1.7;
+    for (const p of (L.people || []).slice()) { const q = p.root.position; if (Math.abs(q.x - SDX) < 0.9 && q.z > SDZ - 1.0 && q.z < SDZ + 0.3) vanish(L, p); }
+    b.box(SDX + 0.2, 0.76, SDZ - 0.05, 0.22, 0.012, 0.3, toon('#ffffff', { map: TEX.paper('lined') }), { ry: 0.3, collide: false });
+    b.box(SDX - 0.3, 0.755, SDZ + 0.17, 0.32, 0.12, 0.012, M.cream, { collide: false }); sign(b, SDX - 0.3, 0.815, SDZ + 0.18, 0, 'SAM', 0.3, 0.1, '#f4efe4', '#2b2118');
+    // her plane flies the class route backwards
+    const ring = L.stages.find((s) => s.kind === 'rings'); const items = ring ? ring.items.slice().reverse().map((it) => Object.assign({}, it, { p: it.p.clone(), n: it.n.clone().negate() })) : [];
+    L.stages = [
+      { kind: 'rings', text: 'One lap of the room — quietly', items },
+      { kind: 'land', text: 'Land it on Sam’s desk', label: 'SAM', pad: box3(SDX - 0.55, 0.74, SDZ - 0.26, SDX + 0.55, 1.1, SDZ + 0.26), hint: 'Brake with {BRAKE}. Gently — it’s a secret.' },
+    ];
+    const f = items[0]; L.spawn = f ? { pos: f.p.clone().addScaledVector(f.n, -2.4).setY(Math.max(1.3, f.p.y)), yaw: Math.atan2(f.n.x, f.n.z), pitch: 0 } : L.spawn;
+    L.startHint = 'Mia’s plane. Mia’s rules. Nobody look.';
+    L.chatter = ['Morning, Mia!', 'Early again?', 'Is that a NOTE?', 'Mia’s blushing', 'Where’s Sam?'];
+  },
+};
+LEVELS.push(MIA_LEVEL); twoLevelSky('mia', 'day');
+CAST_IN.mia = ['zoe', 'priya', 'jake', 'ollie', 'ana', 'nina', 'rosa', 'ben']; TEACH_IN.mia = ['hart'];
+QUESTS.mia = { from: 'zoe', to: 'priya', ask: 'Tell Priya: NOT a word to Sam.', thanks: 'Statistically, I will say several words.' };
+LEVEL_CHAT.mia = ['Morning!', 'Is it Friday already?', 'Mia, did you do the homework?', 'Why’s Mia smiling?', 'That plane has hearts on it', 'Sam’s late. Again.', 'Who folded that?', 'Ms. Hart isn’t here yet', 'Shh, she’s concentrating', 'Mia never throws planes'];
+CONVOS_BY.mia = [['Mia folded a PLANE?', 'Mia folds everything.', 'Since when?'], ['Is it for Sam?', 'No comment.', 'It’s for Sam.']];
+THEMES.mia = { bpm: 84, chords: [[62, 66, 69, 73], [59, 62, 66, 69], [55, 59, 62, 66], [57, 61, 64, 67]], lead: 'triangle', leadV: 0.04 };
+SPECIALS.mia = { lines: ['Is that MIA’s plane?!', 'Sam’s desk! Go!', 'A star — before school?', 'Watch the radiator, Mia!', 'Delivered. He’ll never know.', 'Power-up! Before class!', 'So close to the lamp!', 'Skimming the desks!', 'New fold? Fancy.', 'Hearts. Right past my head.', 'Another star!', 'Every star? Mia, you show-off.', 'U-turn! She’s good.', 'Crashed. Nobody saw. Probably.', 'Too fast! Ms. Hart’s coming!', 'Slow and secret. Nice.', 'A whole minute, no bumps!', 'Last ring — his desk!', 'Combo! Who knew?', 'Out of puff…'], who: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0] };
+CUTS.mia = [['mia', '(to herself) Okay. Before he gets here.'], ['zoe', 'Mia. Is that a NOTE?'], ['mia', 'It’s… homework.'], ['zoe', 'Homework with hearts on it.'], ['mia', 'Zoe. Please.']];
+DIARY.mia = 'Monday: found a note in my desk. From MIA. From FRIDAY. I have read it eleven times.';
+ACHS.push({ id: 'miach', n: 'Her side of the story', d: 'Finish Mia’s Morning', chk: () => !!Store.data.best.mia, ic: '💌' });
+v7wireL(MIA_LEVEL);
+
+// ═════════ v13: BONUS · THE SCHOOL PLAY ═════════
+const PLAY_LEVEL = {
+  id: 'play', name: 'The School Play', place: 'Thursday · 6:30 pm · the hall', seed: 223, gold: 58, silver: 95, bonus: true, ceil: 6,
+  story: ['Thursday. 6:30 pm. The school play: “The Paper Dragon”.', 'The dragon costume ripped. Ms. Rivera has a better idea: Sam’s plane.', 'Every parent in town is watching. Gran brought a camera.', 'Fly the loop over the audience, find the missing script pages, and land on your mark.'],
+  outro: 'Standing ovation. Gran took 212 photos. All of the ceiling.',
+  build(L, b) {
+    const X0 = -8, X1 = 8, Z0 = -7, Z1 = 7, H = 6;
+    L.sun = { dir: v3(0.3, 0.9, 0.2), color: 0xffd8a8, intensity: 0.6 }; L.center = v3(0, 2, 0); L.span = 24; L.hemi = { sky: 0xf0d8c0, ground: 0x4a3428, intensity: 1.35 }; L.amb = 0.55; L.grade = 'evening';
+    room(b, { x0: X0, x1: X1, z0: Z0, z1: Z1, h: H, wall: toon('#ffffff', { map: TEX.plaster('#a8483e') }), floor: M.wood, floorUV: 2 });
+    // the stage, curtains and the painted backdrop
+    const SZ0 = 2.6, SH = 1.0;
+    b.aabb(-6.4, 0, SZ0, 6.4, SH, Z1, M.woodDark); b.aabb(-6.4, SH - 0.02, SZ0 - 0.02, 6.4, SH + 0.004, SZ0 + 0.06, toon('#d8b25a'), { collide: false });
+    for (const sx of [-1, 1]) b.aabb(sx * 1.2 - 0.45, 0, SZ0 - 0.7, sx * 1.2 + 0.45, 0.5, SZ0, M.woodDark); // steps
+    const red = toon('#a8202c'), redD = toon('#7e1620');
+    for (const sx of [-1, 1]) for (let i = 0; i < 6; i++) { const x = sx * (6.6 - i * 0.22); b.box(x, SH, SZ0 + 0.1 + (i % 2) * 0.08, 0.24, H - SH, 0.16, i % 2 ? redD : red); }
+    for (let i = 0; i < 26; i++) b.box(-6.5 + i * 0.52, H - 0.9, SZ0 + 0.12, 0.5, 0.9, 0.14, i % 2 ? redD : red, { collide: false });
+    b.decal(0, 3.4, Z1 - 0.04, 11, 4.4, toon('#ffffff', { map: canvasTex(1024, 410, (g, w, h) => {
+      const gr = g.createLinearGradient(0, 0, 0, h); gr.addColorStop(0, '#5f8fd0'); gr.addColorStop(1, '#f4c88a'); g.fillStyle = gr; g.fillRect(0, 0, w, h);
+      g.fillStyle = '#fff2b0'; g.beginPath(); g.arc(w * 0.82, h * 0.22, 46, 0, TAU); g.fill();
+      g.fillStyle = '#6e9a4a'; g.beginPath(); g.moveTo(0, h); for (let x = 0; x <= w; x += 32) g.lineTo(x, h * 0.72 - Math.sin(x / 90) * 30); g.lineTo(w, h); g.fill();
+      g.fillStyle = '#9aa0b0'; g.fillRect(w * 0.32, h * 0.3, w * 0.3, h * 0.5); for (let i = 0; i < 6; i++) g.fillRect(w * 0.32 + i * w * 0.054, h * 0.25, w * 0.03, h * 0.06);
+      g.fillRect(w * 0.25, h * 0.18, w * 0.08, h * 0.62); g.fillRect(w * 0.61, h * 0.18, w * 0.08, h * 0.62); g.fillStyle = '#c8504a'; for (const x of [0.29, 0.65]) { g.beginPath(); g.moveTo(w * (x - 0.05), h * 0.18); g.lineTo(w * x, h * 0.04); g.lineTo(w * (x + 0.05), h * 0.18); g.fill(); }
+      g.fillStyle = '#4a3428'; g.beginPath(); g.arc(w * 0.47, h * 0.8, w * 0.05, Math.PI, 0); g.fill(); g.fillStyle = 'rgba(40,30,20,0.25)'; g.font = `40px ${FONT_HAND}`; g.fillText('painted by 5B', w * 0.03, h * 0.95);
+    }, { repeat: false }) }), { ry: Math.PI });
+    // cardboard props: a tree, a tower, a moon on a stick
+    b.cyl(-4.6, SH, 5.4, 0.12, 1.4, M.woodDark, { seg: 8 }); b.sphere(-4.6, SH + 1.8, 5.4, 0.7, toon('#5e8a3e'), { seg: 10 });
+    b.box(4.4, SH, 5.6, 0.9, 2.2, 0.9, toon('#b0b4c0')); for (let i = 0; i < 3; i++) b.box(4.1 + i * 0.3, SH + 2.2, 5.6, 0.16, 0.22, 0.9, toon('#b0b4c0'));
+    b.cyl(2.6, SH, 6.4, 0.03, 2.6, M.woodDark, { seg: 5, collide: false }); b.sphere(2.6, SH + 2.8, 6.4, 0.32, glow('#fff2b0', 1.0), { seg: 12, collide: false });
+    sign(b, 0, H - 0.5, SZ0 - 0.02, Math.PI, '“THE PAPER DRAGON” · CLASS 5B', 3.6, 0.42, '#7e1620', '#ffe8b0');
+    // the lighting rig and three spotlights on the stage
+    b.aabb(-6, 5.3, 1.6, 6, 5.42, 1.75, M.metalDark);
+    const beam = new THREE.MeshBasicMaterial({ color: 0xfff0c0, transparent: true, opacity: 0.08, depthWrite: false, side: THREE.DoubleSide, blending: THREE.AdditiveBlending });
+    const spots = [];
+    for (const [x, tx] of [[-3.5, -2.2], [0, 0], [3.5, 2.2]]) {
+      b.cyl(x, 5.0, 1.68, 0.16, 0.32, M.black, { seg: 10, collide: false }); b.sphere(x, 5.02, 1.68, 0.12, glow('#fff4d0', 1.6), { seg: 8, collide: false });
+      const from = v3(x, 5.0, 1.68), to = v3(tx, SH, 4.6), len = from.distanceTo(to);
+      const cone = new THREE.Mesh(new THREE.ConeGeometry(0.9, len, 20, 1, true), beam.clone()); cone.position.copy(from).lerp(to, 0.5);
+      cone.quaternion.setFromUnitVectors(v3(0, -1, 0), to.clone().sub(from).normalize()); L.group.add(cone);
+      const pool = new THREE.Mesh(new THREE.CircleGeometry(0.85, 24), new THREE.MeshBasicMaterial({ color: 0xfff0c0, transparent: true, opacity: 0.16, depthWrite: false, blending: THREE.AdditiveBlending }));
+      pool.rotation.x = -Math.PI / 2; pool.position.set(tx, SH + 0.01, 4.6); L.group.add(pool); spots.push([cone, pool]);
+    }
+    // the piano, the director's chair
+    b.box(6.6, 0, 0.6, 1.4, 1.1, 0.6, toon('#1e1a18')); b.box(6.6, 1.1, 0.75, 1.3, 0.02, 0.3, M.white, { collide: false }); chair(b, 6.6, -0.1, Math.PI, { wood: M.woodDark });
+    chair(b, -6.6, 0.2, Math.PI * 0.75, { wood: toon('#2a2a2a') });
+    // audience: rows of chairs facing the stage
+    const seatsA = [];
+    for (const z of [-0.6, -2.0, -3.4, -4.8]) for (let i = 0; i < 9; i++) { const x = -5 + i * 1.25; chair(b, x, z, 0, { wood: toon('#3a4a6a') }); seatsA.push([x, z]); }
+    // on stage: the knight, the narrator, the princess (cast fills them)
+    kid(L, b, -2.4, 4.0, Math.PI + 0.3, { y: SH, react: ['cheer', 'point'], lines: { cheer: ['Behold! The dragon!'], point: ['There it is!'] } });
+    kid(L, b, 5.6, 3.4, Math.PI - 0.4, { y: SH, react: ['point'], lines: { point: ['And then… the dragon flew!'] } });
+    kid(L, b, 2.4, 4.2, Math.PI - 0.2, { y: SH, react: ['cheer'], lines: { cheer: ['My hero! I mean — eek!'] } });
+    // the teachers, then the audience
+    adult(L, b, -6.4, 1.0, Math.PI * 0.85, { react: ['point', 'cheer'], lines: { point: ['Places, everyone!'], cheer: ['Magnificent!'] } });
+    adult(L, b, 6.6, -0.1, 0, { pose: 'sit', seatY: 0.45, react: ['cheer'], lines: { cheer: ['Bravo!'] } });
+    const fam = [];
+    seatsA.forEach(([x, z], i) => { if ((i * 7) % 5 === 0) return; if (i % 4 === 1 && fam.length < 3) { const who = ['mum', 'dad', 'gran'][fam.length]; const p = adult(L, b, x, z, 0, { pose: 'sit', seatY: 0.45, react: ['cheer'], lines: { cheer: [['That’s our Sam!', 'Go on, son!', 'Smile for Gran!'][fam.length]] } }); p.who = who; fam.push(p); } else if (R() < 0.72) seated(L, b, x, z, 0, { seatY: 0.45, armsDesk: false }); });
+    b.update((dt, t) => { spots.forEach(([c, p], i) => { const k = 0.07 + Math.sin(t * 1.3 + i * 2) * 0.02; c.material.opacity = k; p.material.opacity = k * 2; }); });
+    pw(L, 'tailwind', 2.6, 2.6, -5.2); pw(L, 'shield', -6.8, 2.6, -2.5);
+    L.spawn = { pos: v3(0, 2.6, -6.3), yaw: 0, pitch: 0 };
+    L.stages = [
+      { kind: 'rings', text: 'A lap over the audience', items: [{ p: v3(0, 2.6, -3.4), n: N(0, 0, 1), r: 0.55 }, { p: v3(4.8, 3.2, -0.6), n: N(0.8, 0, 0.6), r: 0.55 }, { p: v3(7.0, 3.6, -4.6), n: N(0, 0, -1), r: 0.55 },
+        { p: v3(0, 4.4, -6.2), n: N(-1, 0, 0), r: 0.55 }, { p: v3(-7.0, 3.6, -4.4), n: N(0, 0, 1), r: 0.55 }, { p: v3(-4.6, 3.0, 0.6), n: N(0.7, 0, 0.7), r: 0.55 }] },
+      { kind: 'pages', text: 'Find the 3 missing script pages', items: [{ p: v3(6.6, 1.55, 0.6) }, { p: v3(0, 4.8, 0.2) }, { p: v3(-7.2, 0.9, -6.2) }], hint: 'One’s on the piano. One’s up by the lights.' },
+      { kind: 'land', text: 'Land on your mark — centre stage', label: 'MARK', pad: box3(-0.7, SH, 4.0, 0.7, SH + 0.35, 5.2), hint: 'Brake with {BRAKE}. Hit the spotlight.' },
+    ];
+    L.stars = [v3(4.4, SH + 2.75, 5.6), v3(-7.4, 5.4, 6.4), v3(0, 0.45, -5.6)];
+    L.hints = [{ box: box3(-6.5, 0, 2.5, 6.5, 6, 7), text: 'The stage. Your mark is in the middle spotlight.' }];
+    L.startHint = 'The curtain’s up. Fly, dragon!';
+    L.dustMin = v3(-8, 0.3, -7); L.dustMax = v3(8, 5.8, 7); L.dustN = 320;
+    L.chatter = ['Shh, it’s starting!', 'Is that a real dragon?', 'Where’s the princess?', 'I can’t see!', 'Phones off, please'];
+  },
+};
+LEVELS.push(PLAY_LEVEL); twoLevelSky('play', 'day');
+CAST_IN.play = ['jake', 'priya', 'zoe', 'leo', 'tom', 'ana', 'ollie', 'nina', 'ben', 'rosa', 'max'].filter((k) => CAST[k]); TEACH_IN.play = ['rivera', 'lieu'];
+QUESTS.play = { from: 'ana', to: 'jake', ask: 'Tell Jake his helmet is on backwards.', thanks: 'It’s a CHOICE, Ana.' };
+LEVEL_CHAT.play = ['Break a leg!', 'I forgot my line', 'Is my crown straight?', 'Mum, stop waving', 'The dragon is SAM’s plane?', 'Ten minutes till curtain', 'Who’s got the sword?', 'Gran’s filming the floor', 'This chair squeaks', 'Encore!'];
+CONVOS_BY.play = [['What’s my line?', '“Behold, the dragon!”', 'Behold… the… what?'], ['Did you see the dragon?', 'It’s a paper plane.', 'It’s a DRAGON, Dad.']];
+THEMES.play = { bpm: 96, chords: [[57, 60, 64, 69], [53, 57, 60, 65], [55, 59, 62, 67], [52, 56, 59, 64]], lead: 'triangle', leadV: 0.05 };
+SPECIALS.play = { lines: ['The dragon enters!', 'Your mark! Centre stage!', 'A star? In the lights?', 'Mind the curtain!', 'Bravo! BRAVO!', 'Power-up! Dramatic!', 'Nearly hit the lighting rig!', 'Skimming the audience!', 'A costume change!', 'It flew over Gran!', 'Another star! Encore!', 'Every star! Standing ovation!', 'It turns! It returns!', 'The dragon fell over…', 'Too fast for the script!', 'Slow… dramatic… yes.', 'A whole minute, no bumps!', 'The final scene!', 'Combo! The crowd goes wild!', 'Out of breath. Dragon breath.'], who: [0, 0, 0, 0, 'adult', 0, 0, 0, 0, 'adult', 0, 0, 0, 0, 0, 0, 0, 0, 0, 0] };
+CUTS.play = [['rivera', 'The dragon costume is in three pieces.'], ['jake', 'I sat on it. By accident. Mostly.'], ['rivera', 'Sam. Your plane. You’re the dragon now.'], ['gran', 'Is that our Sam? Somebody hold my camera.']];
+CHOICES.play = { who: 'rivera', q: 'Ms. Rivera: “Sam — think you can be the dragon?”', opts: [
+  { t: 'ROAR. I mean — yes, Miss.', who: 'rivera', r: 'That’s the spirit!', rel: { jake: 1, ana: 1 }, d: 'I was the dragon. I roared. On purpose.', cb: ['jake', 'ROAR, Sam!'] },
+  { t: 'Can Ana paint some scales on it?', who: 'ana', r: 'Already did. Look at the tail!', rel: { ana: 2 }, d: 'Ana painted scales on my plane. Best dragon ever.', cb: ['ana', 'Show off those scales!'] },
+  { t: 'Only if Gran stops filming.', who: 'gran', r: 'Never, dear.', rel: {}, d: 'Gran filmed the whole thing. Mostly her thumb.', cb: ['gran', 'I’m filming, dear!'] }] };
+DIARY.play = 'The school play. I was the dragon.';
+ACHS.push({ id: 'playach', n: 'Break a wing', d: 'Finish The School Play', chk: () => !!Store.data.best.play, ic: '🎭' });
+v7wireL(PLAY_LEVEL);
+
+// ═════════ v13: BONUS · SPORTS DAY (the field behind the yard) ═════════
+const SPORTS_LEVEL = {
+  id: 'sports', name: 'Sports Day', place: 'Wednesday · 1:00 pm · the field', seed: 229, gold: 66, silver: 110, bonus: true, outdoor: true, ceil: 24,
+  story: ['Wednesday. 1:00 pm. Sports Day.', 'Leo has won every race since nursery. Today he’s racing a paper plane.', 'Coach Brandt has a whistle and opinions. The wind has opinions too.', 'Clear the hurdles, grab the batons, and land on the top step of the podium.'],
+  outro: 'Gold medal: Sam’s plane. Silver: Leo. Leo would like a rematch. Forever.',
+  build(L, b) {
+    YARD_DEF.build.call(this, L, b);
+    for (const p of (L.people || []).slice()) if (p.kind === 'mia' || p.miaSpot) vanish(L, p);
+    const TX0 = -25, TX1 = -19, TZ0 = 14, TZ1 = 46.5;
+    b.aabb(TX0, 0.004, TZ0, TX1, 0.011, TZ1, toon('#c0583c'), { collide: false });
+    for (let i = 0; i <= 4; i++) b.aabb(TX0 + i * 1.5 - 0.03, 0.011, TZ0, TX0 + i * 1.5 + 0.03, 0.015, TZ1, M.white, { collide: false });
+    b.aabb(TX0, 0.011, 15.4, TX1, 0.015, 15.6, M.white, { collide: false }); b.aabb(TX0, 0.011, 45.4, TX1, 0.015, 45.6, M.white, { collide: false });
+    for (let k = 0; k < 4; k++) { const z = 20 + k * 6; for (let i = 0; i < 4; i++) { const cx = TX0 + 0.75 + i * 1.5; b.box(cx - 0.6, 0, z, 0.05, 0.75, 0.05, M.white); b.box(cx + 0.6, 0, z, 0.05, 0.75, 0.05, M.white); b.box(cx, 0.68, z, 1.25, 0.1, 0.04, i % 2 ? M.white : M.red); } }
+    // start banner and the podium
+    for (const x of [TX0 - 0.3, TX1 + 0.3]) b.cyl(x, 0, 13, 0.06, 3.1, M.steel, { seg: 6 });
+    sign(b, -22, 2.75, 13, Math.PI, 'SPORTS DAY · GO 5B!', 5.6, 0.6, '#2f6b45'); sign(b, -22, 2.75, 13.01, 0, 'SPORTS DAY · GO 5B!', 5.6, 0.6, '#2f6b45');
+    const PX = -22, PZ = 49.4;
+    b.box(PX, 0, PZ, 1.2, 0.6, 1.0, toon('#f4efe4')); b.box(PX - 1.25, 0, PZ, 1.2, 0.42, 1.0, toon('#e6e0d0')); b.box(PX + 1.25, 0, PZ, 1.2, 0.3, 1.0, toon('#e6e0d0'));
+    sign(b, PX, 0.3, PZ - 0.51, Math.PI, '1', 0.4, 0.4, '#d8b25a'); sign(b, PX - 1.25, 0.21, PZ - 0.51, Math.PI, '2', 0.34, 0.34, '#9aa0b0'); sign(b, PX + 1.25, 0.15, PZ - 0.51, Math.PI, '3', 0.28, 0.28, '#b8794a');
+    // bunting along the track
+    const flag = new THREE.BufferGeometry(); flag.setAttribute('position', new THREE.Float32BufferAttribute([-0.14, 0, 0, 0.14, 0, 0, 0, -0.3, 0], 3)); flag.computeVertexNormals();
+    const fm = ['#d8473a', '#f2a93b', '#3d6fb4', '#4aa36a', '#f4efe4'].map((c) => StdM({ color: c, side: THREE.DoubleSide }));
+    for (const x of [TX0 - 0.9, TX1 + 0.9]) { for (const z of [14, 30, 46]) b.cyl(x, 0, z, 0.04, 2.6, M.woodLight, { seg: 5, collide: false });
+      for (let i = 0; i < 64; i++) { const z = 14 + i * 0.5, sag = Math.sin(((z - 14) % 16) / 16 * Math.PI) * 0.4; const m = new THREE.Mesh(flag, fm[i % 5]); m.position.set(x, 2.58 - sag, z); m.rotation.y = Math.PI / 2; L.group.add(m); } }
+    // runners (Leo first), sack-racers, spectators
+    CAST_Q = ['leo', 'jake', 'zoe', 'priya', 'ollie', 'ana', 'tom', 'nina', 'ben', 'rosa'].filter((k) => CAST[k] && !(L.people || []).some((p) => p.castId === k));
+    for (let i = 0; i < 3; i++) { const x = TX0 + 2.25 + i * 1.5; kid(L, b, x, 16, 0, { pose: 'walk', walk: { a: [x, 16], b: [x, 44], speed: 1.6 + i * 0.15 }, react: ['cheer'], lines: { cheer: ['Can’t catch me!', 'Go, plane!'] } }); }
+    const sacks = [];
+    for (let i = 0; i < 3; i++) { const p = kid(L, b, -15 + i * 1.4, 34, Math.PI, { react: ['cheer'], lines: { cheer: ['Hop! Hop!'] } }); const s = new THREE.Mesh(PG.cyl, toon('#a8875a')); s.scale.set(0.22, 0.5, 0.2); s.position.y = 0.25; p.root.add(s); sacks.push(p); }
+    for (let i = 0; i < 8; i++) kid(L, b, TX0 - 2.2, 18 + i * 3.4, Math.PI / 2, { react: ['cheer', 'wave'], lines: { cheer: ['GO SAM!', 'Faster!', 'Woo!'] } });
+    CAST_Q = [];
+    TEACH_Q = ['brandt']; adult(L, b, TX1 + 1.4, 15, -Math.PI / 2, { react: ['point'], lines: { point: ['No flying on the track!', 'HUSTLE!'] }, chat: ['*whistle*', 'On your marks!', 'Hydrate!', 'Leo, that’s a plane.'] }); TEACH_Q = [];
+    for (let i = 0; i < 4; i++) { const p = adult(L, b, TX1 + 2.6, 22 + i * 5, -Math.PI / 2, { react: ['cheer'], lines: { cheer: ['Go on!', 'That’s my kid!'] } }); if (i === 0) p.who = 'mum'; }
+    b.update((dt, t) => { sacks.forEach((p, i) => { const ph = (t * 1.6 + i * 0.7) % 1; p.root.position.y = Math.abs(Math.sin(ph * Math.PI)) * 0.22; p.root.position.z = 34 + ((t * 0.5 + i * 3) % 12) - 6; }); });
+    L.spawn = { pos: v3(-21.75, 4.2, 8), yaw: 0, pitch: -0.05 };
+    L.stages = [
+      { kind: 'rings', text: 'Clear the hurdles', items: [20, 26, 32, 38].map((z, i) => ({ p: v3(-21.75 + (i % 2 ? -0.9 : 0.9), 1.55, z), n: N(0, 0, 1), r: 0.7 })) },
+      { kind: 'pages', text: 'Grab the 3 relay batons', items: [{ p: v3(-14, 3.4, 26) }, { p: v3(-29, 2.6, 40) }, { p: v3(-16, 5.2, 46) }], hint: 'The wind blows across the field — fight it or ride it.' },
+      { kind: 'land', text: 'Land on the top step of the podium', label: 'GOLD', pad: box3(PX - 0.58, 0.6, PZ - 0.48, PX + 0.58, 0.95, PZ + 0.48), hint: 'Brake with {BRAKE}. Gold is the tall one.' },
+    ];
+    L.startHint = 'On your marks… get set… THROW!';
+    L.chatter = ['On your marks!', 'Who has the baton?', 'Leo’s fast', 'Egg-and-spoon next', 'Sack race!', 'Hydrate!'];
+  },
+};
+LEVELS.push(SPORTS_LEVEL); twoLevelSky('sports', 'day');
+CAST_IN.sports = []; TEACH_IN.sports = [];
+QUESTS.sports = { from: 'leo', to: 'zoe', ask: 'Tell Zoe I let the plane win.', thanks: 'He did NOT.' };
+LEVEL_CHAT.sports = ['Go Leo!', 'Water break!', 'My sack has a hole', 'Who stole the egg?', 'Coach is shouting again', 'Did you see that plane?', 'Gold or nothing', 'My legs are jelly', 'Ice lollies after!', 'Ready, steady…'];
+CONVOS_BY.sports = [['I’m gonna win.', 'Against a plane?', 'Especially against a plane.'], ['Egg-and-spoon next.', 'I ate my egg.', '…it was raw.']];
+THEMES.sports = { bpm: 128, chords: [[60, 64, 67, 72], [65, 69, 72, 77], [67, 71, 74, 79], [65, 69, 72, 77]], lead: 'square', leadV: 0.03 };
+SPECIALS.sports = { lines: ['And they’re OFF!', 'The podium! Go!', 'A star on the field!', 'Hurdle! HURDLE!', 'GOLD! Gold for Sam!', 'Power-up! Turbo!', 'Over the hurdle — just!', 'Skimming the track!', 'Change of fold mid-race!', 'Faster than Leo!', 'Another star!', 'All the stars! Record!', 'U-turn! Wrong way!', 'Down! It’s down!', 'Too fast — false start!', 'Easy… pace yourself.', 'A minute clean! Personal best!', 'Final stretch!', 'Combo! The crowd roars!', 'Out of puff…'], who: [0, 0, 0, 0, 'adult', 0, 0, 0, 0, 0, 0, 0, 0, 0, 'adult', 0, 0, 0, 0, 0] };
+CUTS.sports = [['brandt', 'Lane four: Leo. Lane five: …a paper plane?'], ['leo', 'Finally. A real challenge.'], ['jake', 'My money’s on the plane.'], ['brandt', '*WHISTLE*']];
+CHOICES.sports = { who: 'leo', q: 'Leo: “Race you to the podium. Loser carries the cones.”', opts: [
+  { t: 'You’re on.', who: 'leo', r: 'Finally!', rel: { leo: 2 }, d: 'Raced Leo on Sports Day. Leo carried the cones.', cb: ['leo', 'Here I come!'] },
+  { t: 'Can we just… both win?', who: 'priya', r: 'Statistically, no.', rel: { priya: 1 }, d: 'Asked if we could both win. Priya said no. Statistically.', cb: ['priya', 'Statistically, run!'] },
+  { t: 'I’ll carry the cones anyway.', who: 'brandt', r: 'Good attitude, Sam!', rel: {}, d: 'Carried the cones. Coach gave me a sticker.', cb: ['brandt', 'Hustle, Sam!'] }] };
+DIARY.sports = 'Sports Day. Gold medal. For a paper plane.';
+ACHS.push({ id: 'sportsach', n: 'Gold medal', d: 'Finish Sports Day', chk: () => !!Store.data.best.sports, ic: '🥇' });
+v7wireL(SPORTS_LEVEL);
+
+// ═════════ v13: BONUS · THE FIELD TRIP BUS ═════════
+const TRIP_LEVEL = {
+  id: 'trip', name: 'Field Trip', place: 'Tuesday · 9:05 am · the bus to the museum', seed: 233, gold: 55, silver: 90, bonus: true, ceil: BUS_LEVEL.ceil,
+  story: ['Tuesday. 9:05 am. Field trip to the science museum.', 'Forty minutes on the bus. Somebody started a song. It will not stop.', 'Mia saved a seat at the back. Again. Sam is at the front. Again.', 'Down the aisle, grab the permission slips, land it next to Mia.'],
+  outro: 'They sing all the way to the museum. Gus the driver hums along. Secretly.',
+  build(L, b) {
+    BUS_LEVEL.build.call(this, L, b);
+    const tx = ['Down the aisle — mind the singers', 'Grab the 3 permission slips', 'Land on the seat next to Mia'];
+    L.stages.forEach((s, i) => { if (tx[i]) s.text = tx[i]; });
+    const SONG = [['♪ We’re on the bus, the bus, the bus! ♪', '♪ Nobody here can make a fuss! ♪', '♪ Except for Jake! ♪'], ['♪ Ninety-nine planes up in the air… ♪', '♪ …fold one more and throw it there! ♪'], ['♪ Are we there yet? ♪', '♪ NO! ♪', '♪ Are we there yet? ♪'], ['♪ The museum has a dinosaur… ♪', '♪ …and a gift shop, and a door! ♪'], ['♪ Gus, Gus, drive the bus! ♪', '♪ Faster, faster, all of us! ♪']];
+    let st = rr(4, 7), q = [];
+    const planes = [];
+    const pg2 = planeGeometry('dart');
+    b.update((dt, t) => {
+      if (L.passive) return; st -= dt;
+      const ppl = (L.people || []).filter((p) => p.kind === 'kid' && p.state === 'idle' && p.root.visible);
+      if (st <= 0 && !q.length && ppl.length) { q = pick(SONG).slice(); st = rr(11, 16); }
+      if (q.length && (L._songT = (L._songT || 0) - dt) <= 0) { L._songT = 1.6; const p = pick(ppl); if (p) p.say(q.shift(), 1.6, '#fff3c0'); if (!q.length) stat('songs'); }
+      // somebody throws a paper plane out of the window now and then
+      if (R() < dt * 0.12 && ppl.length) { const p = pick(ppl), m = new THREE.Mesh(pg2, M.paper); const s = Math.sign(p.root.position.x) || 1; m.position.set(p.root.position.x, 1.35, p.root.position.z); m.rotation.y = s * Math.PI / 2; L.group.add(m); planes.push({ m, s, t: 0, z: p.root.position.z }); p.say(pick(['Bye, plane!', 'Wheee!', 'Fly free!']), 1.2); }
+      for (let i = planes.length - 1; i >= 0; i--) { const P = planes[i]; P.t += dt; const k = P.t / 1.4; P.m.position.set(P.s * lerp(0.6, 3.2, k), 1.35 + k * 0.6, P.z - k * 2.2); P.m.rotation.z = Math.sin(P.t * 6) * 0.3; if (k >= 1) { L.group.remove(P.m); planes.splice(i, 1); } }
+    });
+    L.startHint = 'Down the aisle. The singing is optional.';
+  },
+};
+LEVELS.push(TRIP_LEVEL); twoLevelSky('trip', 'day');
+CAST_IN.trip = (CAST_IN.bus || []).slice(); TEACH_IN.trip = (TEACH_IN.bus || ['gus']).slice();
+QUESTS.trip = { from: 'priya', to: 'ben', ask: 'Tell Ben the museum has a robot room.', thanks: 'A ROBOT ROOM?! I need to sit down. I am sitting down.' };
+LEVEL_CHAT.trip = ['Are we there yet?', 'I packed six sandwiches', 'The museum has a T. rex!', 'Who’s got the permission slips?', 'I feel sick', 'Sing it again!', 'NOT again', 'Window seat!', 'Gus is humming', 'Field trip!'];
+CONVOS_BY.trip = [['Is the T. rex real?', 'It’s bones.', 'REAL bones?'], ['Where are we going?', 'Museum.', 'I thought it was the zoo.']];
+THEMES.trip = { bpm: 112, chords: [[60, 64, 67, 71], [62, 65, 69, 72], [64, 67, 71, 74], [62, 65, 69, 72]], lead: 'triangle', leadV: 0.04 };
+SPECIALS.trip = { lines: ['Plane on the bus!', 'Mia’s seat! Go!', 'A star on the bus?', 'Pothole! Hold on!', 'Delivered. Museum next!', 'Power-up from the roof hatch!', 'Nearly hit the driver!', 'Skimming the seats!', 'New fold for the trip!', 'Right past my sandwich!', 'Another star!', 'All three! On a BUS!', 'U-turn in the aisle!', 'Crashed into my lunch…', 'Too fast for the bus!', 'Easy… we’re braking.', 'A minute clean! Smooth ride!', 'Last row! Mia’s there!', 'Combo! Sing it!', 'Out of puff…'], who: [0, 0, 0, 0, 0, 0, 'adult', 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0] };
+CUTS.trip = [['gus', 'Seat belts. Museum in forty minutes.'], ['jake', '♪ We’re on the bus, the bus, the bus! ♪'], ['priya', 'That song has no second verse.'], ['jake', 'It does now.'], ['mia', 'Sam! I saved you a seat!']];
+CHOICES.trip = { who: 'jake', q: 'Jake: “Sam! Pick the next song!”', opts: [
+  { t: '“Are we there yet?” — the remix.', who: 'jake', r: 'A CLASSIC.', rel: { jake: 1, tom: 1 }, d: 'Picked the song on the bus. Gus asked us to stop. We didn’t.', cb: ['jake', '♪ Are we there yet? ♪'] },
+  { t: 'Can we have a quiet one?', who: 'ollie', r: '(whisper-sings) ♪ la la la ♪', rel: { ollie: 2 }, d: 'Asked for a quiet song. Ollie whisper-sang the whole way.', cb: ['ollie', '♪ la la la ♪'] },
+  { t: 'Let Mia pick.', who: 'zoe', r: 'Aww. She’ll pick a good one.', rel: { zoe: 2 }, d: 'Let Mia pick the song. She picked the one about the dinosaur.', cb: ['zoe', 'Mia picked! ♪'] }] };
+DIARY.trip = 'Field trip. Sang on the bus for forty minutes.';
+ACHS.push({ id: 'tripach', n: 'Are we there yet?', d: 'Finish the Field Trip', chk: () => !!Store.data.best.trip, ic: '🚌' });
+v7wireL(TRIP_LEVEL);
+
+// ═════════ v13: BONUS · THE LAST DAY OF SCHOOL (the finale) ═════════
+const BYE = {
+  jake: ['Best year ever, Sam. Ever!', 'See ya, plane boy!', 'Bye. I guess.'], priya: ['You flew 4,200 metres this year. I counted.', 'Have a scientifically good summer.', 'Fewer crashes next year, please.'],
+  zoe: ['Write to her, okay? I’m serious.', 'Be nice to Mia this summer.', 'Stay away from Mia. Kidding. Mostly.'], leo: ['Rematch in September!', 'I’ll catch it next year.', 'Next year I win.'],
+  tom: ['Wake me in September…', 'zzz… bye… zzz', '…what? Bye.'], ana: ['I drew you a goodbye card!', 'Summer is SO yellow.', 'Bye, I guess.'],
+  ollie: ['I’ll… miss your plane. And you.', '…bye, Sam.', '(waves, sort of)'], nina: ['Best first year ever. Thanks, Sam!', 'See you next year!', 'Bye!'],
+  ben: ['I’m building you a jet pack!', 'Summer project: a better plane!', 'Bye. Mind the propeller.'], rosa: ['Front page: SAM, STAR OF 5B!', 'Summer issue: “Where’s the plane?”', 'Headline: FINALLY, HE’S GONE.'],
+  max: ['Thanks for everything, Sam.', 'See you, Sam.', 'Watch your back in September.'], emma: ['Gold star for the year!', 'Have a tidy summer.', 'I’m telling Miss you’re flying.'],
+};
+const LAST_LEVEL = {
+  id: 'lastday', name: 'Last Day of School', place: 'Friday · 3:30 pm · the very last bell', seed: 241, gold: 90, silver: 150, bonus: true, outdoor: true, ceil: 24,
+  story: ['The last day of school. Summer starts in one bell.', 'Everyone’s outside, signing shirts and saying goodbye.', 'Mia is at the picnic table under the oak. Like the very first time.', 'Say goodbye to everyone on the way — then one last landing.'],
+  outro: 'The bell rings. Summer starts. Sam and Mia walk home the long way.',
+  build(L, b) {
+    YARD_DEF.build.call(this, L, b);
+    L.grade = 'day';
+    // banner + bunting on the school front
+    sign(b, 0, 4.3, -23.88, 0, 'HAVE A GREAT SUMMER, 5B!', 6.2, 0.7, '#d8473a', '#fff6d8');
+    const flag = new THREE.BufferGeometry(); flag.setAttribute('position', new THREE.Float32BufferAttribute([-0.16, 0, 0, 0.16, 0, 0, 0, -0.34, 0], 3)); flag.computeVertexNormals();
+    const fm = ['#d8473a', '#f2a93b', '#3d6fb4', '#4aa36a', '#e07a9a'].map((c) => StdM({ color: c, side: THREE.DoubleSide }));
+    for (let i = 0; i < 40; i++) { const x = -14 + i * 0.7, sag = Math.sin((i % 10) / 10 * Math.PI) * 0.45; const m = new THREE.Mesh(flag, fm[i % 5]); m.position.set(x, 3.55 - sag, -23.7); L.group.add(m); }
+    // balloons on the picnic table and the oak
+    const bm = ['#d8473a', '#f2a93b', '#3d6fb4', '#e07a9a', '#4aa36a'].map((c) => toon(c));
+    const balloons = [];
+    for (let i = 0; i < 7; i++) { const x = 5.6 + i * 0.45, z = 31.2 + (i % 2) * 0.3, y = 2.4 + (i % 3) * 0.3; b.cyl(x, 0.85, z, 0.005, y - 0.85, M.white, { seg: 3, collide: false }); const m = new THREE.Mesh(PG.sph, bm[i % 5]); m.scale.set(0.22, 0.27, 0.22); m.position.set(x, y, z); L.group.add(m); balloons.push(m); }
+    // the goodbye line — every classmate, along the way
+    const have = new Set((L.people || []).map((p) => p.castId).filter(Boolean));
+    CAST_Q = castIds().filter((k) => !have.has(k));
+    const SPOT = [[9.2, -16], [5.8, -15], [0.2, -10.6], [-3.6, -11.4], [-11.4, -4.4], [-16.2, 1.4], [2.4, 8.6], [5.6, 7.2], [12, 13.6], [13.8, 10.2], [-2.4, 27.2], [-2.6, 33.4]];
+    for (const [x, z] of SPOT) { if (!CAST_Q.length) break; kid(L, b, x, z, Math.atan2(7.5 - x, -23 - z), { react: ['wave', 'cheer'], lines: { wave: ['Bye!', 'See you!'], cheer: ['SUMMER!'] } }); }
+    CAST_Q = [];
+    TEACH_Q = ['hart', 'ellis', 'moss']; for (const [x, z] of [[-3.5, -21], [3.8, -21.2], [16, 30]]) adult(L, b, x, z, Math.PI * (x > 10 ? -0.5 : 0), { react: ['wave'], lines: { wave: ['Have a lovely summer!', 'Bye, Sam!'] } }); TEACH_Q = [];
+    const said = new Set();
+    b.update((dt, t, fl) => {
+      balloons.forEach((m, i) => { m.position.y += Math.sin(t * 1.2 + i) * 0.0015; m.rotation.z = Math.sin(t * 0.9 + i) * 0.15; });
+      if (L.passive || !fl || fl.state !== 'fly') return; const S = L.S || 1;
+      for (const p of L.people || []) { const id = p.castId; if (!id || said.has(id) || !BYE[id]) continue; if (p.worldPos(_v4).distanceTo(fl.pos) > 3.2 * S) continue;
+        said.add(id); const v = relOf(id), line = BYE[id][v >= 1 || (id === 'max' && MAX_GOOD()) ? 0 : v >= 0 ? 1 : 2]; mustSay(p, line, 2.6, '#fff3c0'); p.startReact && p.state === 'idle' && p.startReact('wave', fl, true);
+        if (said.size === 6) UI.pop('6 goodbyes said'); if (said.size >= 10 && !L._allBye) { L._allBye = true; UI.big('Goodbye, everyone!', 1.4); stat('allbye'); } }
+    });
+    const ring = L.stages.find((s) => s.kind === 'rings'), land = L.stages.find((s) => s.kind === 'land');
+    if (ring) ring.text = 'The goodbye line — fly past everyone';
+    if (land) { land.text = 'One last landing — Mia’s table'; land.hint = 'Brake with {BRAKE}. Make it count. Again.'; }
+    L.stages = [ring, { kind: 'pages', text: 'Collect 3 signed yearbook pages', items: [{ p: v3(0, 3.6, -2) }, { p: v3(18, 4.2, 18) }, { p: v3(-20, 3.2, 30) }] }, land].filter(Boolean);
+    L.startHint = 'Last bell in a minute. Say goodbye on the way!';
+    L.chatter = ['SUMMER!', 'Sign my shirt!', 'Bye, everyone!', 'See you in September!', 'No more homework!'];
+  },
+};
+const _v4 = new V3();
+LEVELS.push(LAST_LEVEL); twoLevelSky('lastday', 'sunset');
+CAST_IN.lastday = []; TEACH_IN.lastday = [];
+QUESTS.lastday = { from: 'rosa', to: 'zoe', ask: 'Ask Zoe for a quote for the summer issue.', thanks: 'Quote: “Sam, write to her.” Print that.' };
+LEVEL_CHAT.lastday = ['Sign my yearbook!', 'Summer!', 'I’ll miss you guys', 'See you in September', 'No more homework!', 'Best year ever', 'Who’s crying? Not me.', 'Ice cream after?', 'Mia’s at the oak', 'One more bell'];
+CONVOS_BY.lastday = [['Will you write?', 'Every week.', 'Liar.'], ['Last day ever!', 'Of THIS year.', 'Still counts.']];
+THEMES.lastday = { bpm: 92, chords: [[60, 64, 67, 72], [57, 60, 64, 69], [65, 69, 72, 76], [67, 71, 74, 79]], lead: 'triangle', leadV: 0.05 };
+SPECIALS.lastday = { lines: ['Sam! Last flight!', 'Mia’s table! Go!', 'A star — on the last day?', 'Don’t crash now!', 'SUMMER!', 'Power-up! For the road!', 'So close!', 'Skimming the grass!', 'One last new fold!', 'Bye, plane! Bye!', 'Another star!', 'Every star! The whole year!', 'U-turn — saying bye twice?', 'Crashed on the last day…', 'Too fast! Slow down, enjoy it!', 'Gently now…', 'A whole minute clean!', 'Last landing. Make it count.', 'Combo! What a year!', 'Out of puff…'], who: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0] };
+CUTS.lastday = [['hart', 'That’s it, 5B. Have a wonderful summer.'], ['jake', 'NO MORE HOMEWORK!'], ['zoe', 'Mia’s waiting. Same table. Same oak.'], ['priya', 'It’s been exactly one year since the first plane.'], ['mia', 'Sam! Last one!']];
+CHOICES.lastday = { who: 'zoe', q: 'Zoe: “So. Are you going to write to her this summer?”', opts: [
+  { t: 'Every week. On paper planes.', who: 'zoe', r: 'Good answer.', rel: { zoe: 2 }, d: 'Promised Zoe I’d write to Mia every week. On planes.', cb: ['zoe', 'Every WEEK, Sam.'] },
+  { t: 'I’ll ask her myself.', who: 'mia', r: '(from the oak) I heard that!', rel: { zoe: 1, jake: 1 }, d: 'Said I’d ask Mia myself. She heard. From the OAK.', cb: ['mia', 'Ask me what?'] },
+  { t: 'Can I write to everyone?', who: 'ollie', r: '…me too?', rel: { ollie: 2, nina: 1 }, d: 'Going to write to the whole class. Ollie first.', cb: ['ollie', 'Write to me first!'] }] };
+DIARY.lastday = 'The last day of school. Said goodbye to everyone. Mia and I walked home the long way.';
+ACHS.push({ id: 'lastach', n: 'School’s out', d: 'Finish the Last Day of School', chk: () => !!Store.data.best.lastday, ic: '☀️' },
+  { id: 'allbye', n: 'Goodbye, everyone', d: 'Say goodbye to 10 classmates on the last day', chk: () => (ST().allbye || 0) > 0, ic: '👋' });
+v7wireL(LAST_LEVEL);
+{ const _res = Game.results; Game.results = function () { const r = _res.apply(this, arguments); const L = LEVELS[this.li];
+  if (L && L.id === 'lastday') { const n = document.querySelector('#scr .note'); if (n) n.insertAdjacentHTML('afterend', '<div class="note" style="color:var(--margin)">That’s the whole school year. Thanks for flying with Sam — and Mia. ♥</div>'); for (let i = 0; i < 4; i++) bursts.emit(this.flyer.pos.clone().add(v3(rr(-1, 1), 1, rr(-1, 1))), 30, pick([0xffd060, 0xff8070, 0x88ccff, 0x9ae09a]), 2.6, -1); }
+  return r; }; }
+
+// ═════════ v13: CLASS PHOTO (Classroom 5B — say cheese) ═════════
+const ClassPhoto = {
+  shoot(L, cam, look, cap) {
+    const S = L.S || 1, eye = cam.clone().multiplyScalar(S), tgt = look.clone().multiplyScalar(S), fl = Game.flyer;
+    const sp = camera.position.clone(), sq = camera.quaternion.clone(), sf = camera.fov;
+    camera.position.copy(eye); camera.lookAt(tgt); camera.fov = 58; camera.updateProjectionMatrix(); camera.updateMatrixWorld(true);
+    const np = fl.pos.clone().project(camera), dist = fl.pos.distanceTo(eye);
+    const bomb = fl.state === 'fly' && np.z < 1 && Math.abs(np.x) < 0.9 && Math.abs(np.y) < 0.9 && dist < 9 * S && fl.group.visible;
+    let src = null; try { Game.render(0, Game.t || 0); src = Album.grab(384, 0.72); } catch (e) { src = null; }
+    camera.position.copy(sp); camera.quaternion.copy(sq); camera.fov = sf; camera.updateProjectionMatrix();
+    if (src) Album.add(src, cap + (bomb ? ' · photobombed!' : ''), bomb ? 'bomb' : 'class');
+    return bomb;
+  },
+};
+{ const ob = CLASS_DEF.build; CLASS_DEF.build = function (L, b) { ob.call(this, L, b); if (L.def && L.def.id !== 'class') return;
+    // the photographer and a tripod at the front, by the window
+    const TX = 7.6, TZ = 5.6; for (let i = 0; i < 3; i++) { const a = i / 3 * TAU; b.cyl(TX + Math.cos(a) * 0.18, 0, TZ + Math.sin(a) * 0.18, 0.012, 1.35, M.metalDark, { seg: 4, collide: false, rz: Math.cos(a) * 0.12, rx: -Math.sin(a) * 0.12 }); }
+    b.box(TX, 1.35, TZ, 0.26, 0.18, 0.16, M.black, { collide: false, ry: -2.3 }); b.sphere(TX - 0.08, 1.44, TZ - 0.08, 0.05, toon('#4a4a52'), { collide: false });
+    const ph = adult(L, b, TX + 0.45, TZ + 0.2, -2.3, { shirt: '#5a7a9a', react: ['point'], lines: { point: ['Hold still, plane!'] }, chat: ['Lovely, lovely.', 'Chins up!', 'Bit to the left…'] }); ph.who = 'photog';
+    if (L.passive) return;
+    let T = (Store.data.photos || []).some((p) => p.tag === 'class' || p.tag === 'bomb') ? (R() < 0.5 ? rr(24, 40) : 1e9) : rr(18, 28), step = 0;
+    L.photoNow = () => { if (step === 0) T = 0; };
+    b.update((dt, t, fl) => {
+      if (Game.level !== L || Game.mode !== 'play') return; T -= dt; if (T > 0) return;
+      const kids = (L.people || []).filter((p) => p.kind === 'kid' && p.root.visible);
+      if (step === 0) { step = 1; T = 1.6; mustSay(ph, 'Class photo! Everybody squeeze in!', 2.2, '#e8f0ff'); UI.toast('📸 Class photo in 3… fly into the shot!', 3); }
+      else if (step < 4) { mustSay(ph, ['3…', '2…', '1… say CHEESE!'][step - 1], 1.2, '#e8f0ff'); if (step === 3) kids.slice(0, 6).forEach((p) => p.say('Cheeese!', 1.3)); Audio.tone(880 + step * 120, 0.08, 'sine', 0.06); step++; T = 1.0; }
+      else if (step === 4) { step = 5; T = 1e9; Audio.noiseHit(0.12, 4000, 0.25, 0.8); post.uniforms.flash.value = Math.max(post.uniforms.flash.value, 0.7);
+        const bomb = ClassPhoto.shoot(L, v3(TX - 0.1, 1.45, TZ - 0.1), v3(0, 0.9, -1.5), 'Class 5B · Friday');
+        if (bomb) { UI.big('PHOTOBOMB!', 1.4); Game.addScore(500, 'photobomb'); stat('photobomb'); mustSay(ph, 'Is that… a PLANE in my photo?!', 2.2, '#e8f0ff'); kids.slice(0, 3).forEach((p) => p.say(pick(['Sam photobombed it!', 'Best photo ever!', 'Legend!']), 1.6)); }
+        else { UI.toast('📸 Class photo taken — it’s in Sam’s album', 2.4); mustSay(ph, 'Lovely! Next class!', 1.6, '#e8f0ff'); } }
+    });
+  }; }
+ACHS.push({ id: 'photobomb', n: 'Photobomb', d: 'Fly into the class photo', chk: () => (ST().photobomb || 0) > 0, ic: '📸' },
+  { id: 'shutter', n: 'Shutterbug', d: 'Take 5 photos', chk: () => (ST().photos || 0) >= 5, ic: '📷' });
+
+// ═════════ v13: PHOTO MODE ═════════
+const FILTERS = [
+  { n: 'Natural' }, { n: 'Golden hour', gain: [1.12, 1.0, 0.8], sat: 1.15 }, { n: 'Black & white', sat: 0, con: 1.18 },
+  { n: 'Old photo', sat: 0.2, gain: [1.14, 0.98, 0.74], con: 1.05, lift: [0.04, 0.03, 0.01] }, { n: 'Dreamy', lift: [0.07, 0.05, 0.08], sat: 0.9, con: 0.9 },
+  { n: 'Comic book', sat: 1.55, con: 1.3, inkK: 0.7 }, { n: 'Night', gain: [0.75, 0.85, 1.15], sat: 0.7, con: 1.1 },
+];
+const Photo = {
+  on: false,
+  enter(fromPause) {
+    const G = Game; if (!G.level || !G.flyer || G.mp) return;
+    if (G.mode !== 'pause') G._prevMode = G.mode === 'countdown' ? 'countdown' : 'play';
+    this.from = fromPause ? 'pause' : 'play'; this.on = true; G.mode = 'photo'; UI.state = 'photo'; UI.show(''); $('hud').hidden = true; document.body.classList.remove('playing'); document.body.classList.add('photo');
+    const u = post.uniforms; this.saved = { lift: u.lift.value.clone(), gam: u.gam.value.clone(), gain: u.gain.value.clone(), sat: u.sat.value, con: u.con.value, inkK: u.inkK.value };
+    const tg = this.tgt = G.flyer.pos.clone(); const off = camera.position.clone().sub(tg); this.d = clamp(off.length(), 0.4, 12); this.yaw = Math.atan2(off.x, off.z); this.pit = Math.asin(clamp(off.y / Math.max(1e-3, off.length()), -0.95, 0.95));
+    this.f = 0; this.hide = false; this.fov0 = camera.fov; this.fov = camera.fov; this.ui(); this.apply();
+  },
+  exit() {
+    if (!this.on) return; this.on = false; document.body.classList.remove('photo'); const el = $('photoUI'); if (el) el.remove();
+    const u = post.uniforms, s = this.saved; if (s) { u.lift.value.copy(s.lift); u.gam.value.copy(s.gam); u.gain.value.copy(s.gain); u.sat.value = s.sat; u.con.value = s.con; u.inkK.value = s.inkK; }
+    Game.flyer.group.visible = true; camera.fov = this.fov0 || camera.fov; camera.updateProjectionMatrix();
+    if (this.from === 'pause') Game.pauseMenu(); else Game.acts.resume();
+  },
+  apply() {
+    const u = post.uniforms, s = this.saved, F = FILTERS[this.f];
+    u.lift.value.copy(s.lift); u.gam.value.copy(s.gam); u.gain.value.copy(s.gain); u.sat.value = s.sat; u.con.value = s.con; u.inkK.value = s.inkK;
+    if (F.lift) u.lift.value.set(...F.lift); if (F.gain) u.gain.value.set(...F.gain); if (F.sat != null) u.sat.value = F.sat; if (F.con != null) u.con.value = F.con; if (F.inkK != null) u.inkK.value = F.inkK;
+    Game.flyer.group.visible = !this.hide;
+    const el = $('phF'); if (el) el.textContent = F.n; const h = $('phH'); if (h) h.textContent = this.hide ? 'Show plane' : 'Hide plane';
+  },
+  ui() {
+    const old = $('photoUI'); if (old) old.remove();
+    const d = document.createElement('div'); d.id = 'photoUI';
+    d.innerHTML = `<div class="ph-top"><b>📷 Photo mode</b><span>${Input.device === 'touch' ? 'drag to look around · pinch or ± to zoom' : 'drag or arrows to orbit · wheel or ± to zoom · Enter to snap · Esc to leave'}</span></div>
+      <div class="ph-bar"><button class="btn small" data-p="f-">‹</button><span class="ph-f" id="phF"></span><button class="btn small" data-p="f+">›</button>
+      <button class="btn small" data-p="z-">−</button><button class="btn small" data-p="z+">+</button><button class="btn small" data-p="hide" id="phH">Hide plane</button>
+      <button class="btn ph-snap" data-p="snap">📸 Snap</button><button class="btn small" data-p="done">Done</button></div><div class="ph-shot" id="phShot" hidden></div><i class="ph-flash" id="phFlash"></i>`;
+    document.body.appendChild(d);
+    d.addEventListener('click', (e) => { const b2 = e.target.closest('[data-p]'); if (!b2) return; e.stopPropagation(); const k = b2.dataset.p;
+      if (k === 'f-' || k === 'f+') { this.f = (this.f + (k === 'f+' ? 1 : -1) + FILTERS.length) % FILTERS.length; this.apply(); }
+      if (k === 'z-') this.d = clamp(this.d * 1.2, 0.35, 14); if (k === 'z+') this.d = clamp(this.d / 1.2, 0.35, 14);
+      if (k === 'hide') { this.hide = !this.hide; this.apply(); } if (k === 'snap') this.snap(); if (k === 'done') this.exit(); if (k === 'close') $('phShot').hidden = true; });
+    d.addEventListener('pointerdown', (e) => e.stopPropagation());
+  },
+  snap() {
+    this._snapNow = true;
+  },
+  doSnap(dt, t) {
+    let full = null, thumb = null; try { full = renderer.domElement.toDataURL('image/jpeg', 0.92); thumb = Album.grab(384, 0.72); } catch (e) {}
+    Audio.noiseHit(0.12, 4000, 0.3, 0.8); Audio.tone(1800, 0.05, 'square', 0.04, 0.05);
+    const fl = $('phFlash'); if (fl) { fl.classList.remove('go'); void fl.offsetWidth; fl.classList.add('go'); }
+    if (!thumb) return; const L = LEVELS[Game.li], nm = Game.practice ? 'Free flight' : (L && L.name) || 'Paper Flight';
+    Album.add(thumb, `${nm} · ${FILTERS[this.f].n}`, 'photo');
+    const sh = $('phShot'); if (sh) { sh.hidden = false; sh.innerHTML = `<div class="pol"><img src="${thumb}" alt=""><span>${nm}</span></div><div class="ph-act"><a class="btn small" href="${full}" download="paper-flight-${Date.now()}.jpg">Download</a><button class="btn small" data-p="close">OK</button></div><div class="ph-note">Saved to Sam’s album (Notebook).</div>`; }
+  },
+  tick(dt, t) {
+    const K = Input.keys, sp = dt * 1.6;
+    if (K.has('ArrowLeft') || K.has('KeyA')) this.yaw -= sp; if (K.has('ArrowRight') || K.has('KeyD')) this.yaw += sp;
+    if (K.has('ArrowUp') || K.has('KeyW')) this.pit = clamp(this.pit + sp * 0.7, -1.35, 1.45); if (K.has('ArrowDown') || K.has('KeyS')) this.pit = clamp(this.pit - sp * 0.7, -1.35, 1.45);
+    if (K.has('Equal') || K.has('NumpadAdd') || K.has('KeyE')) this.d = clamp(this.d * (1 - dt * 1.2), 0.35, 14); if (K.has('Minus') || K.has('NumpadSubtract') || K.has('KeyQ')) this.d = clamp(this.d * (1 + dt * 1.2), 0.35, 14);
+    const pad = Input.state; if (Input.device === 'pad') { this.yaw += (pad.roll || 0) * sp; this.pit = clamp(this.pit - (pad.pitch || 0) * sp * 0.7, -1.35, 1.45); }
+    const c = Math.cos(this.pit); camera.position.set(this.tgt.x + Math.sin(this.yaw) * c * this.d, this.tgt.y + Math.sin(this.pit) * this.d, this.tgt.z + Math.cos(this.yaw) * c * this.d);
+    // keep the camera out of walls: pull in along the ray until free
+    const L = Game.level, o = { n: new V3() }; if (L && L.col) { const dir = camera.position.clone().sub(this.tgt); const n = dir.length(); dir.normalize(); for (let s = 0.2; s <= n; s += 0.1) { const p = this.tgt.clone().addScaledVector(dir, s); if (L.col.test(p, 0.06, o)) { camera.position.copy(this.tgt).addScaledVector(dir, Math.max(0.15, s - 0.12)); break; } } }
+    camera.lookAt(this.tgt);
+  },
+};
+{ let drag = null, pinch = null;
+  const cv = () => renderer.domElement;
+  window.addEventListener('pointerdown', (e) => { if (!Photo.on || (e.target.closest && e.target.closest('.ph-bar, .ph-shot'))) return; drag = { x: e.clientX, y: e.clientY, id: e.pointerId }; });
+  window.addEventListener('pointermove', (e) => { if (!Photo.on || !drag || e.pointerId !== drag.id) return; Photo.yaw -= (e.clientX - drag.x) * 0.006; Photo.pit = clamp(Photo.pit + (e.clientY - drag.y) * 0.005, -1.35, 1.45); drag.x = e.clientX; drag.y = e.clientY; });
+  window.addEventListener('pointerup', () => { drag = null; });
+  window.addEventListener('wheel', (e) => { if (!Photo.on) return; Photo.d = clamp(Photo.d * (e.deltaY > 0 ? 1.1 : 1 / 1.1), 0.35, 14); }, { passive: true });
+  window.addEventListener('touchmove', (e) => { if (!Photo.on || e.touches.length !== 2) { pinch = null; return; } const d = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY); if (pinch) Photo.d = clamp(Photo.d * pinch / d, 0.35, 14); pinch = d; drag = null; }, { passive: true });
+  window.addEventListener('keydown', (e) => { if (e.code === 'KeyO' && !Photo.on && Game.level && !Game.editing && (Game.mode === 'play' || Game.mode === 'pause' || Game.mode === 'countdown')) Photo.enter(Game.mode === 'pause');
+    else if (Photo.on && e.code === 'KeyF') { Photo.f = (Photo.f + 1) % FILTERS.length; Photo.apply(); } else if (Photo.on && e.code === 'KeyH') { Photo.hide = !Photo.hide; Photo.apply(); } });
+}
+{ const _fr = Game.frame; Game.frame = function (dt, t) {
+    if (this.mode !== 'photo') return _fr.call(this, dt, t);
+    this.t = t; Input.poll(dt); UI.tick(dt); Input.inMenu = true;
+    if (Input.take('pause') || Input.take('back')) { Input.take('confirm'); Photo.exit(); return this.render(dt, t); }
+    if (Input.take('confirm')) Photo.snap();
+    Input.take('up'); Input.take('down'); Input.take('left'); Input.take('right'); Input.take('cam'); Input.take('restart');
+    Photo.tick(dt, t);
+    const m = this.mode; this.mode = 'done'; try { this.render(dt, t); if (Photo._snapNow) { Photo._snapNow = false; Photo.doSnap(dt, t); } } finally { this.mode = m; }
+  }; }
+Game.acts.photo = () => Photo.enter(true);
+{ const _pm = Game.pauseMenu; Game.pauseMenu = function () { const _sh = UI.show; UI.show = function (h, c) { h = typeof h === 'string' ? h.replace('<button class="btn" data-nav data-act="pauseSettings">', '<button class="btn" data-nav data-act="photo">📷 Photo mode <span class="k">O</span></button><button class="btn" data-nav data-act="pauseSettings">') : h; return _sh.call(this, h, c); };
+  try { return _pm.apply(this, arguments); } finally { UI.show = _sh; } }; }
+
+// ═════════ v13: THE NOTEBOOK ALBUM ═════════
+{ const _nb = Game.notebook; Game.notebook = function () { _nb.apply(this, arguments); const nb = document.querySelector('#scr .nb'); if (!nb) return; const a = Album.list();
+    const cells = a.length ? a.map((p, i) => `<figure class="pol" style="--r:${((i * 37) % 9) - 4}deg"><img src="${p.src}" alt="" loading="lazy"><figcaption>${p.cap}</figcaption></figure>`).join('') : '<div class="empty-ink">No photos yet. Pause and press 📷 Photo mode (or O) — or wait for the class photo in 5B.</div>';
+    nb.insertAdjacentHTML('afterend', `<div class="paper ovhs"><div class="ovt">Sam’s album <span>${a.length}/12 photos · the newest first</span></div><div class="album">${cells}</div></div>`); }; }
+
+// ═════════ v13: NIBBLES RIDES ALONG (pet companion) ═════════
+const Pet = {
+  mesh: null, cool: 0, eT: 0, hopT: 0, chk: 0,
+  build() {
+    pg(); const g = new THREE.Group(), fur = toon('#e0a050'), cream = toon('#f4efe4'), pink = toon('#f2b8a8');
+    const bd = new THREE.Mesh(PG.sph, fur); bd.scale.set(0.03, 0.026, 0.038); g.add(bd);
+    const bl = new THREE.Mesh(PG.sph, cream); bl.scale.set(0.021, 0.017, 0.024); bl.position.set(0, -0.008, 0.018); g.add(bl);
+    const hd = this.head = new THREE.Group(); hd.position.set(0, 0.012, 0.03); g.add(hd);
+    const h = new THREE.Mesh(PG.sph, fur); h.scale.set(0.022, 0.02, 0.02); hd.add(h);
+    for (const s of [-1, 1]) { const e = new THREE.Mesh(PG.sphLo, M.black); e.scale.setScalar(0.0048); e.position.set(s * 0.011, 0.006, 0.016); hd.add(e);
+      const ear = new THREE.Mesh(PG.sph, pink); ear.scale.set(0.008, 0.009, 0.004); ear.position.set(s * 0.014, 0.019, 0.002); hd.add(ear); }
+    const ns = new THREE.Mesh(PG.sphLo, pink); ns.scale.setScalar(0.0035); ns.position.set(0, 0.0, 0.021); hd.add(ns);
+    const tag = this.eep = new THREE.Sprite(new THREE.SpriteMaterial({ map: nameTex('EEP!', '#fff3b0'), transparent: true, depthWrite: false, depthTest: false })); tag.renderOrder = 10;
+    const a = tag.material.map.userData.aspect || 3; tag.scale.set(0.035 * a, 0.035, 1); tag.position.set(0, 0.07, 0); tag.visible = false; g.add(tag);
+    g.traverse((o) => { if (o.isMesh) o.castShadow = true; });
+    g.position.set(0, 0.032, -0.025); return g;
+  },
+  sync(fl) {
+    const want = Store.data.settings.pet !== 'off' && fl && fl.type !== 'ball' && !(Game.mp);
+    if (!this.mesh) this.mesh = this.build();
+    if (this.mesh.parent !== fl.group) fl.group.add(this.mesh);
+    this.mesh.visible = want; return want;
+  },
+  squeak(k = 1) { Audio.tone(2300, 0.06, 'square', 0.035 * k, 0, 1.15); Audio.tone(2700, 0.07, 'square', 0.03 * k, 0.09, 1.1); },
+  tick(dt, t) {
+    const G = Game, fl = G.flyer, L = G.level; if (!fl || !L || !this.mesh) return; if (!this.mesh.visible) return;
+    this.cool -= dt; this.eT -= dt; this.hopT -= dt;
+    const m = this.mesh, sp = fl.vel.length();
+    m.position.y = 0.032 + Math.abs(Math.sin(t * 3)) * 0.002 + (this.hopT > 0 ? Math.sin((0.5 - this.hopT) * TAU) * 0.012 : 0);
+    this.head.rotation.y = Math.sin(t * 0.7) * 0.5; this.head.rotation.x = -clamp(sp * 0.03, 0, 0.3);
+    this.eep.visible = this.eT > 0; if (this.eT > 0) this.eep.position.y = 0.07 + (0.9 - this.eT) * 0.03;
+    if (G.mode !== 'play' || fl.state !== 'fly' || L.passive || this.cool > 0 || sp < 1.2) return;
+    if ((this.chk -= dt) > 0) return; this.chk = 0.08;
+    const o = { n: new V3() }, o2 = { n: new V3() }, p = new V3();
+    if (L.col.test(fl.pos, 0.05, o2)) return;
+    for (const k of [0.32, 0.55]) { p.copy(fl.pos).addScaledVector(fl.vel, k);
+      if (!L.col.test(p, 0.05, o)) continue; if (o.tag === 'bounce') return;
+      if (o.n.y > 0.6 && fl.vel.y > -2.2) return; // just skimming the floor or coming in to land
+      this.cool = 2.4; this.eT = 0.9; this.hopT = 0.5; this.squeak(); stat('eeps');
+      UI.pop(pick(['🐹 EEP!', '🐹 Wall! WALL!', '🐹 Squeak!', '🐹 Pull up!']), 0.8); return; }
+  },
+};
+{ const _b = Game.begin; Game.begin = function () { const r = _b.apply(this, arguments); if (this.flyer) Pet.sync(this.flyer); return r; }; }
+{ const _fr = Game.frame; Game.frame = function (dt, t) { const r = _fr.call(this, dt, t); try { if (this.flyer && Pet.mesh && this.mode !== 'photo') Pet.tick(dt, t); } catch (e) {} return r; }; }
+{ const _fx = Game.fx; Game.fx = function (kind, a) { const r = _fx.call(this, kind, a); if (Pet.mesh && Pet.mesh.visible && this.mode === 'play') { if (kind === 'crash') { Pet.eT = 0.9; Pet.squeak(0.7); setTimeout(() => UI.pop('🐹 …eep.', 1.0), 600); } } return r; }; }
+{ const _ev = Game.onEvent; Game.onEvent = function (e) { const r = _ev.call(this, e); if (Pet.mesh && Pet.mesh.visible && (e.type === 'star' || e.type === 'power')) { Pet.hopT = 0.5; Pet.squeak(0.6); } return r; }; }
+ACHS.push({ id: 'eep', n: 'Co-pilot', d: 'Nibbles squeaked 20 warnings', chk: () => (ST().eeps || 0) >= 20, ic: '🐹' });
+{ const st = document.createElement('style'); st.textContent = `
+#photoUI { position: fixed; inset: 0; z-index: 40; pointer-events: none; font-family: var(--f-ui); }
+#photoUI.hid > :not(.ph-flash) { visibility: hidden; }
+#photoUI .ph-top { position: absolute; top: max(12px, env(safe-area-inset-top)); left: 50%; transform: translateX(-50%) rotate(-1deg); background: var(--paper); color: var(--ink); padding: 8px 16px; border-radius: 6px; box-shadow: 0 6px 18px rgba(0,0,0,.35); display: flex; gap: 12px; align-items: baseline; max-width: calc(100vw - 32px); flex-wrap: wrap; justify-content: center; }
+#photoUI .ph-top b { font-family: var(--f-hand); font-size: 24px; font-weight: 400; } #photoUI .ph-top span { font-size: 13px; color: var(--ink-2); }
+#photoUI .ph-bar { position: absolute; bottom: max(14px, env(safe-area-inset-bottom)); left: 50%; transform: translateX(-50%); display: flex; gap: 8px; align-items: center; pointer-events: auto; background: rgba(26,18,12,.72); padding: 8px 10px; border-radius: 12px; flex-wrap: wrap; justify-content: center; max-width: calc(100vw - 24px); }
+#photoUI .ph-f { min-width: 8.5em; text-align: center; color: #fff6e0; font-family: var(--f-hand); font-size: 22px; }
+#photoUI .ph-snap { background: var(--sun); }
+#photoUI .ph-shot { position: absolute; right: max(16px, env(safe-area-inset-right)); top: 70px; pointer-events: auto; background: var(--paper); padding: 10px; border-radius: 6px; box-shadow: 0 10px 28px rgba(0,0,0,.45); transform: rotate(2deg); max-width: min(300px, calc(100vw - 32px)); }
+#photoUI .ph-shot .pol img { width: 100%; display: block; } #photoUI .ph-shot .pol span { font-family: var(--f-hand); font-size: 20px; color: var(--ink); }
+#photoUI .ph-act { display: flex; gap: 8px; margin-top: 6px; } #photoUI .ph-note { font-size: 12px; color: var(--ink-2); margin-top: 4px; }
+#photoUI .ph-flash { position: absolute; inset: 0; background: #fff; opacity: 0; } #photoUI .ph-flash.go { animation: phflash .5s ease-out; }
+@keyframes phflash { from { opacity: .9; } to { opacity: 0; } }
+body.photo #touch, body.photo .touch { display: none !important; }
+.album { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 16px 12px; padding: 6px 2px 10px; }
+.album .pol { margin: 0; background: #fffdf6; padding: 6px 6px 4px; box-shadow: 0 4px 12px rgba(0,0,0,.22); transform: rotate(var(--r)); }
+.album .pol img { width: 100%; aspect-ratio: 16 / 9; object-fit: cover; display: block; background: #ddd; }
+.album .pol figcaption { font-family: var(--f-hand); font-size: 17px; line-height: 20px; color: var(--ink); padding-top: 4px; min-height: 40px; }
+@media (prefers-reduced-motion: reduce) { #photoUI .ph-flash.go { animation: none; } }`; document.body.appendChild(st); }
 
 boot();
 
