@@ -9819,6 +9819,238 @@ body.photo #touch, body.photo .touch { display: none !important; }
 .album .pol figcaption { font-family: var(--f-hand); font-size: 17px; line-height: 20px; color: var(--ink); padding-top: 4px; min-height: 40px; }
 @media (prefers-reduced-motion: reduce) { #photoUI .ph-flash.go { animation: none; } }`; document.body.appendChild(st); }
 
+
+// ═════════ v14: PORTRAITS, SKIN ART, THE BIG MAP ═════════
+// Purely visual. Hand-drawn portraits (assets/ui/pf_p_<id>.webp, 256²) pinned as little taped polaroids next to whoever
+// speaks in cutscenes, choices, the story card, Overheard, quests, the diary, Mia's notes and the boss intro; painted
+// plane art for the paper skins (assets/ui/pf_s_<id>.webp, 224²); and a new level map (assets/pf_map2.webp) with a
+// pin per level. Everything loads lazily; a missing picture falls back to a pencil silhouette / the procedural paper /
+// the old pf_map with the card grid.
+const PORTRAITS = ['sam', 'mia', 'jake', 'priya', 'zoe', 'leo', 'tom', 'ana', 'ollie', 'nina', 'ben', 'rosa', 'grimsby', 'hart', 'petrenko', 'brandt', 'okafor', 'bell', 'ellis', 'lieu', 'moss', 'rivera', 'sato', 'gus', 'mum', 'dad', 'gran', 'lily', 'mmum', 'mdad'];
+const SKIN_ART = ['plain', 'lined', 'grid', 'news', 'red', 'mint', 'sky', 'gold', 'ink', 'moon', 'confetti', 'map'];
+ART.map2 = 'assets/pf_map2.webp';
+// where each level is on pf_map2, in % of the picture (x, y)
+const MAP_PINS = { class: [12, 32], corridor: [17, 41], library: [8.5, 43], canteen: [13, 58], lab: [7.5, 53], music: [24, 51], gym: [12, 69], boss: [25, 24], yard: [40, 30],
+  art: [34, 46], roof: [26, 14], bus: [45.5, 56], town: [70, 44], party: [88, 59], home: [74, 68], rain: [90, 14], detention: [30, 39], mia: [90, 74], play: [21, 31], sports: [42, 45], trip: [51, 31], lastday: [27, 66] };
+{
+  const st = document.createElement('style');
+  st.textContent = `
+/* ── a taped polaroid portrait ── */
+.face { position: relative; display: inline-block; flex: none; width: 64px; height: 72px; box-sizing: border-box; padding: 4px 4px 10px; background: #fffdf6; border-radius: 2px; transform: rotate(-4deg); box-shadow: 0 1px 0 rgba(0, 0, 0, 0.08), 2px 4px 8px rgba(0, 0, 0, 0.35); animation: facePop 0.3s ease both; vertical-align: middle; }
+.face:nth-of-type(even), .face.r { transform: rotate(3deg); }
+.face::after { content: ""; position: absolute; left: 50%; top: -7px; width: 30px; height: 12px; transform: translateX(-50%) rotate(-6deg); background: rgba(242, 207, 106, 0.72); box-shadow: 0 1px 1px rgba(0, 0, 0, 0.12); }
+.face img { display: block; width: 100%; height: 100%; object-fit: cover; object-position: 50% 20%; border-radius: 1px; background: #efe4c8; }
+.face.sil > i { display: block; width: 100%; height: 100%; background: #efe4c8 center 70% / 80% no-repeat url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40'%3E%3Cg fill='none' stroke='%235a4a3a' stroke-width='1.6' stroke-linecap='round' stroke-dasharray='3 1.6'%3E%3Ccircle cx='20' cy='15' r='8'/%3E%3Cpath d='M5 39c1-9 7-14 15-14s14 5 15 14'/%3E%3C/g%3E%3C/svg%3E"); }
+.face.sm { width: 44px; height: 50px; padding: 3px 3px 7px; } .face.sm::after { width: 22px; height: 9px; top: -5px; }
+@keyframes facePop { from { opacity: 0; transform: translateY(6px) rotate(-8deg) scale(0.9); } }
+/* cutscenes and choices */
+.cutin.hasface { position: relative; padding-left: 96px; min-height: 76px; }
+.cutin > .face { position: absolute; left: 14px; top: -16px; width: 72px; height: 82px; }
+.cutin .chs { position: relative; }
+.cutin .chs > .face { position: absolute; left: -80px; top: 12px; }
+/* story card "what Sam said", diary, quests, Overheard */
+.said.hasface { display: flex; align-items: center; gap: 10px; } .said.hasface > .face { margin: 2px 0; }
+.res .dpage.hasface { display: grid; grid-template-columns: auto 1fr; gap: 0 10px; align-items: start; } .res .dpage.hasface > .face { grid-row: span 2; margin-top: 6px; }
+.ovt.hasface { display: flex; align-items: center; gap: 12px; }
+#hSpecial.hasface { padding-left: 70px; min-height: 54px; } #hSpecial > .face { position: absolute; left: 8px; top: -12px; width: 54px; height: 62px; }
+#hQuest .face { width: 34px; height: 40px; padding: 2px 2px 6px; margin: -6px 8px -6px -4px; } #hQuest .face::after { display: none; }
+/* Mia's notes and the boss intro */
+.story > .face.corner { position: absolute; right: 18px; top: -18px; width: 86px; height: 98px; transform: rotate(5deg); }
+.bossintro .bi-face { display: flex; gap: 14px; align-items: center; } .bossintro .bi-face .face { width: 86px; height: 98px; transform: rotate(-5deg); }
+@media (max-width: 640px), (max-height: 520px) {
+  .cutin.hasface { padding-left: 74px; } .cutin > .face { left: 8px; top: -12px; width: 56px; height: 64px; }
+  .cutin .chs > .face { left: -62px; width: 40px; height: 46px; }
+  .story > .face.corner { width: 64px; height: 74px; right: 10px; top: -14px; }
+  .bossintro .bi-face .face { width: 64px; height: 74px; }
+  #hSpecial.hasface { padding-left: 56px; } #hSpecial > .face { width: 42px; height: 48px; top: -8px; }
+}
+/* ── hangar: painted planes on the skin cards ── */
+.sw.art { background-size: cover, cover; background-position: center, center; }
+.sw.lock { filter: grayscale(0.9) contrast(0.8) brightness(0.92); opacity: 0.8; }
+.sw.lock::before { inset: auto; left: 50%; top: 50%; transform: translate(-50%, -50%) rotate(-3deg); white-space: nowrap; background: var(--paper); color: var(--ink); border: 2px solid var(--ink); border-radius: 4px 10px 4px 10px; padding: 3px 8px; font: 700 14px/1.1 var(--f-ui); text-shadow: none; box-shadow: 2px 2px 0 rgba(0, 0, 0, 0.3); }
+.sw.lock.focus, .sw.lock:hover { opacity: 1; }
+/* the "equipped" badge and the keyboard ring both live on ::after — keep the badge a badge */
+body.kbnav #scr .pcard.chosen.focus::after { inset: auto; top: -9px; right: 12px; border: 0; border-radius: 6px; }
+/* ── level map: pf_map2 backdrop, pins, cards in a strip along the bottom on big landscape screens ── */
+#art img[data-a="map2"] { transform: none; object-position: 50% 50%; }
+@media (orientation: portrait) { #art img[data-a="map2"] { object-position: 16% 50%; } }
+#scr.art-map2.scrim-full { background: linear-gradient(180deg, rgba(30, 20, 12, 0.35), rgba(30, 20, 12, 0) 18%, rgba(30, 20, 12, 0) 70%, rgba(30, 20, 12, 0.35)); }
+#lvPins { position: absolute; left: 0; top: 0; width: 0; height: 0; pointer-events: none; display: none; z-index: 0; }
+.pin { position: absolute; width: 34px; height: 34px; margin: -40px 0 0 -17px; padding: 0; border: 0; background: none; cursor: pointer; pointer-events: auto; font: 700 14px/1 var(--f-ui); color: #fff; }
+.pin::before { content: ""; position: absolute; inset: -6px; } /* bigger hit area */
+.pin .hd { position: absolute; inset: 0; border-radius: 50%; display: grid; place-items: center; background: radial-gradient(circle at 35% 30%, #ff8a7a, var(--margin) 55%, #9a2a22); border: 2px solid #fffaf0; box-shadow: 0 3px 5px rgba(0, 0, 0, 0.45); transition: transform 0.15s ease, box-shadow 0.15s ease; text-shadow: 0 1px 1px rgba(0, 0, 0, 0.5); }
+.pin .nd { position: absolute; left: 50%; top: 30px; width: 2px; height: 12px; margin-left: -1px; background: linear-gradient(#6a6a6a, #2a2a2a); border-radius: 1px; }
+.pin.bonus .hd { background: radial-gradient(circle at 35% 30%, #ffe6a0, var(--sun) 55%, #a8661a); color: var(--ink); text-shadow: none; }
+.pin.done .hd { border-color: var(--sun-2); }
+.pin.lock .hd { background: radial-gradient(circle at 35% 30%, #e8e2d6, #a49a8c 60%, #6e6658); color: #3a332a; text-shadow: none; font-size: 12px; }
+.pin.lock { opacity: 0.8; }
+.pin .lb { position: absolute; left: 50%; bottom: 44px; transform: translateX(-50%) rotate(-2deg); white-space: nowrap; background: var(--paper); color: var(--ink); border: 2px solid var(--ink); border-radius: 4px 10px 4px 10px; padding: 3px 9px; font: 600 13px/1.2 var(--f-ui); box-shadow: 2px 3px 0 rgba(0, 0, 0, 0.35); opacity: 0; pointer-events: none; transition: opacity 0.15s; text-shadow: none; }
+.pin:hover .lb, .pin.on .lb { opacity: 1; }
+.pin:hover .hd { transform: scale(1.12); }
+.pin.on { z-index: 2; } .pin.on .hd { transform: scale(1.28); box-shadow: 0 0 0 4px rgba(255, 207, 106, 0.75), 0 0 22px 6px rgba(255, 207, 106, 0.75), 0 3px 5px rgba(0, 0, 0, 0.45); animation: pinGlow 1.4s ease-in-out infinite alternate; }
+@keyframes pinGlow { to { box-shadow: 0 0 0 6px rgba(255, 207, 106, 0.45), 0 0 30px 10px rgba(255, 207, 106, 0.55), 0 3px 5px rgba(0, 0, 0, 0.45); } }
+@media (min-width: 900px) and (min-height: 600px) and (orientation: landscape) {
+  body.art-ok-map2 #scr.lvmap #lvPins { display: block; }
+  body.art-ok-map2 #scr.lvmap { align-items: stretch; overflow: hidden; }
+  body.art-ok-map2 #scr.lvmap > .panel { width: 100%; max-width: none; height: 100%; max-height: none; overflow: visible; justify-content: space-between; gap: 10px; position: relative; z-index: 1; pointer-events: none; }
+  body.art-ok-map2 #scr.lvmap > .panel > * { pointer-events: auto; }
+  body.art-ok-map2 #scr.lvmap .panel-head { align-self: flex-start; margin-top: 0 !important; }
+  body.art-ok-map2 #scr.lvmap .panel-head h2 { font-size: clamp(30px, 3.6vw, 44px); }
+  body.art-ok-map2 #scr.lvmap .panel-foot { position: absolute; right: 0; top: 0; margin: 0 !important; }
+  body.art-ok-map2 #scr.lvmap .empty { position: absolute; left: 6px; top: 74px; max-width: 420px; font-size: 18px; }
+  body.art-ok-map2 #scr.lvmap .grid { display: flex; gap: 12px; overflow-x: auto; overflow-y: hidden; padding: 14px 8px 10px; margin: auto -8px 0 !important; scroll-snap-type: x proximity; scrollbar-width: thin; -webkit-mask-image: linear-gradient(90deg, transparent, #000 16px, #000 calc(100% - 16px), transparent); mask-image: linear-gradient(90deg, transparent, #000 16px, #000 calc(100% - 16px), transparent); }
+  body.art-ok-map2 #scr.lvmap .grid .card { flex: 0 0 176px; padding: 8px 12px 9px; gap: 2px; scroll-snap-align: center; }
+  body.art-ok-map2 #scr.lvmap .grid .card .num { font-size: 26px; }
+  body.art-ok-map2 #scr.lvmap .grid .card .nm { font-size: 15px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  body.art-ok-map2 #scr.lvmap .grid .card .pl + .pl { display: none; }
+  body.art-ok-map2 #scr.lvmap .grid .card .lockn { font-size: 11.5px; }
+}
+/* short landscape phones: the boss intro reads better on a paper card too */
+@media (max-height: 520px) and (orientation: landscape) {
+  body.art-ok-grimsby .bossintro { background-color: var(--paper); color: var(--ink); border: 2px solid var(--ink); border-radius: 4px 12px 6px 12px; padding: 12px 16px; box-shadow: 0 18px 40px rgba(0, 0, 0, 0.45); box-sizing: border-box; max-height: calc(100vh - 24px); overflow-y: auto; }
+  body.art-ok-grimsby .bossintro ul { box-shadow: none; transform: none; background: transparent; border: 0; padding: 0 0 0 18px; }
+}
+@media (prefers-reduced-motion: reduce) { .face, .pin.on .hd { animation: none !important; } .pin .hd, .pin .lb { transition: none !important; } }
+`;
+  document.body.appendChild(st);
+}
+
+// ── portraits ──
+const Face = {
+  ok: new Set(PORTRAITS), bad: new Set(), lastSpecial: null, names: null,
+  // display name ("Ms. Hart", "Mia’s mum", "Principal Grimsby") → id
+  idOf(name) {
+    if (!name) return null; name = String(name).trim();
+    if (!this.names) {
+      const m = this.names = { Sam: 'sam', Mia: 'mia', 'Principal Grimsby': 'grimsby', Grimsby: 'grimsby' };
+      for (const [k, v] of Object.entries(CAST)) m[v.n] = k;
+      for (const [k, v] of Object.entries(TEACHERS)) m[v.n] = k;
+      for (const [k, v] of Object.entries(typeof EXTRA_NAMES !== 'undefined' ? EXTRA_NAMES : {})) m[v] = k;
+    }
+    return this.names[name] || (this.ok.has(name.toLowerCase()) ? name.toLowerCase() : null);
+  },
+  ofPerson(p) { if (!p) return null; if (p.kind === 'mia') return 'mia'; if (p.o && p.o.boss) return 'grimsby'; return p.castId || p.teacher || p.who || null; },
+  // a polaroid element; known people without art (or art that failed) get a pencil silhouette; nobody → null
+  el(id, cls = '') {
+    if (!id) return null;
+    const f = document.createElement('span'); f.className = 'face ' + cls; f.dataset.id = id; f.setAttribute('aria-hidden', 'true');
+    if (this.ok.has(id) && !this.bad.has(id)) {
+      const im = new Image(); im.alt = ''; im.decoding = 'async'; im.loading = 'lazy';
+      im.addEventListener('error', () => { this.bad.add(id); f.classList.add('sil'); im.replaceWith(document.createElement('i')); });
+      im.src = `assets/ui/pf_p_${id}.webp`; f.appendChild(im);
+    } else { f.classList.add('sil'); f.appendChild(document.createElement('i')); }
+    return f;
+  },
+  // put (or swap) the portrait as the first child of host
+  set(host, id, cls) {
+    const cur = host.querySelector(':scope > .face');
+    if (cur && cur.dataset.id === id) return;
+    if (cur) cur.remove();
+    const f = this.el(id, cls); host.classList.toggle('hasface', !!f); if (f) host.prepend(f);
+  },
+  // every time a menu screen changes, decorate whatever speaks in it
+  scan() {
+    const S = document.getElementById('screens'); if (!S) return;
+    S.querySelectorAll('.cutin').forEach((c) => { const b = c.querySelector(':scope > b'), t = b && b.textContent.trim(); if (t) this.set(c, this.idOf(t) || '?'); }); // '?' = a named extra without art: pencil silhouette
+    S.querySelectorAll('.cutin .chs:not(.hasface)').forEach((c) => this.set(c, 'sam', 'sm r'));
+    S.querySelectorAll('.said:not(.hasface)').forEach((c) => this.set(c, 'sam', 'sm'));
+    S.querySelectorAll('.res .dpage:not(.hasface)').forEach((c) => this.set(c, 'sam', 'sm'));
+    S.querySelectorAll('.diarysec .ovt:not(.hasface)').forEach((c) => this.set(c, 'sam', 'sm r'));
+    S.querySelectorAll('.story').forEach((c) => { const t = c.querySelector('.ttl'); if (t && /Mia’s notes|Mia's notes/.test(t.textContent) && !c.querySelector(':scope > .face.corner')) { const f = this.el('mia', 'corner'); if (f) c.prepend(f); } });
+    S.querySelectorAll('.bossintro:not(.faced)').forEach((c) => { c.classList.add('faced'); const k = c.querySelector('.bi-k'), h = c.querySelector('h2'); if (!h) return; const w = document.createElement('div'); w.className = 'bi-face'; const f = this.el('grimsby'); h.before(w); if (f) w.appendChild(f); w.appendChild(h); });
+  },
+};
+window.__face = Face;
+{
+  let q = false; const S = document.getElementById('screens');
+  new MutationObserver(() => { if (q) return; q = true; queueMicrotask(() => { q = false; Face.scan(); }); }).observe(S, { childList: true, subtree: true });
+  // Overheard: remember who said the special line, then pin them to the card
+  const _say = Person.prototype.say;
+  Person.prototype.say = function (text) { if (typeof text === 'string' && text.startsWith('✦ ')) Face.lastSpecial = Face.ofPerson(this); return _say.apply(this, arguments); };
+  const _sp = Game.special;
+  if (_sp) Game.special = function (kind) {
+    Face.lastSpecial = null; const el = $('hSpecial'), before = el.innerHTML;
+    const r = _sp.apply(this, arguments);
+    if (el.innerHTML !== before) { const f = Face.el(Face.lastSpecial); el.classList.toggle('hasface', !!f); if (f) el.prepend(f); }
+    return r;
+  };
+  // quests: the person who wants the favour, then who it goes to (one persistent node, re-attached after the HUD rewrites the tag)
+  let qf = null, qid = null;
+  const _hud = Game.hud;
+  Game.hud = function (dt) {
+    const r = _hud.apply(this, arguments);
+    const el = $('hQuest'), Q = this.level && this.level.quest;
+    if (el && el.classList.contains('on') && Q && Q.q) {
+      const id = Q.st === 'carry' ? Q.q.to : Q.q.from;
+      if (id !== qid) { qid = id; qf = Face.el(id, 'sm'); }
+      if (qf && qf.parentNode !== el) el.prepend(qf);
+    }
+    return r;
+  };
+}
+
+// ── hangar: painted planes ──
+{
+  const _h = Game.hangar;
+  Game.hangar = function () {
+    const r = _h.apply(this, arguments);
+    document.querySelectorAll('#scr .sw[data-k]').forEach((el) => {
+      const k = el.dataset.k; if (!SKIN_ART.includes(k)) return;
+      // the painting on top, the procedural paper underneath shows if the picture can't load
+      el.style.backgroundImage = `url("assets/ui/pf_s_${k}.webp"), ${el.style.backgroundImage}`;
+      el.classList.add('art');
+    });
+    return r;
+  };
+}
+
+// ── level map: pf_map2 behind the level select, a pin per level ──
+{
+  const _pick = Art.pick.bind(Art);
+  Art.pick = function () { const n = _pick(); if (n === 'map' && UI.state === 'levels' && this.st.map2 !== 'fail') return 'map2'; return n; };
+  const _sync = Art.sync.bind(Art);
+  Art.sync = function () { _sync(); const scr = document.getElementById('scr'); if (scr && this.cur === 'map2') scr.classList.add('art-map'); };
+  const placePins = () => {
+    const box = document.getElementById('lvPins'); const im = Art.img.map2; if (!box || !im || !im.naturalWidth) return;
+    const W = innerWidth, H = innerHeight, iw = im.naturalWidth, ih = im.naturalHeight, k = Math.max(W / iw, H / ih);
+    const op = getComputedStyle(im).objectPosition.split(' ').map((v) => parseFloat(v) / 100);
+    const dw = iw * k, dh = ih * k, x0 = (W - dw) * (isNaN(op[0]) ? 0.5 : op[0]), y0 = (H - dh) * (isNaN(op[1]) ? 0.5 : op[1]);
+    // #scr is fixed at inset 0 (its fade-in slide is a transform, so don't read its rect mid-animation)
+    Object.assign(box.style, { left: `${x0}px`, top: `${y0}px`, width: `${dw}px`, height: `${dh}px` });
+  };
+  const glow = () => { const box = document.getElementById('lvPins'); if (!box) return; const el = UI.items[UI.focus], i = el && el.dataset.act === 'pick' ? el.dataset.i : null; box.querySelectorAll('.pin').forEach((p) => p.classList.toggle('on', p.dataset.i === i)); };
+  const _lv = Game.levels;
+  Game.levels = function () {
+    const r = _lv.apply(this, arguments);
+    const scr = document.getElementById('scr'); if (!scr || UI.state !== 'levels') return r;
+    scr.classList.add('lvmap');
+    const pins = LEVELS.map((L, i) => { const at = MAP_PINS[L.id]; if (!at) return '';
+      const locked = i + 1 > Store.data.unlocked, done = !!(Store.data.best || {})[L.id];
+      return `<button class="pin ${L.bonus ? 'bonus' : ''} ${locked ? 'lock' : ''} ${done ? 'done' : ''}" data-i="${i}" tabindex="-1" aria-hidden="true" style="left:${at[0]}%;top:${at[1]}%"><span class="nd"></span><span class="hd">${locked ? '🔒' : L.bonus ? '★' : i + 1}</span><span class="lb">${L.name}${locked ? ' · locked' : ''}</span></button>`; }).join('');
+    scr.insertAdjacentHTML('afterbegin', `<div id="lvPins">${pins}</div>`);
+    scr.querySelectorAll('.pin').forEach((p) => {
+      const card = () => UI.items.findIndex((e) => e.dataset.act === 'pick' && e.dataset.i === p.dataset.i);
+      p.addEventListener('mouseenter', () => { const k = card(); if (k >= 0) UI.setFocus(k); });
+      p.addEventListener('click', (e) => { e.preventDefault(); const k = card(); if (k >= 0) { Audio.start(); UI.setFocus(k); UI.activate(); } });
+    });
+    placePins(); glow();
+    Art.load('map2').then((ok) => { if (ok) requestAnimationFrame(() => { placePins(); glow(); }); });
+    return r;
+  };
+  addEventListener('resize', () => requestAnimationFrame(placePins));
+  const _sf = UI.setFocus;
+  UI.setFocus = function () { const r = _sf.apply(this, arguments); if (this.state === 'levels') glow(); return r; };
+  // in the bottom strip, ← → walk along the cards too
+  const _nav = UI.nav;
+  UI.nav = function () {
+    if (this.state === 'levels' && document.querySelector('#scr.lvmap #lvPins') && getComputedStyle(document.getElementById('lvPins')).display !== 'none') {
+      const P = Input.pressed, el = this.items[this.focus];
+      if ((P.left || P.right) && el && !el.dataset.lr) { const d = P.right ? 1 : -1; P.left = P.right = false; document.body.classList.add('kbnav'); this.setFocus(this.focus + d); }
+    }
+    return _nav.apply(this, arguments);
+  };
+}
+
 boot();
 
 </script>

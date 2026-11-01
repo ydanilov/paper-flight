@@ -30,13 +30,13 @@ let fails = 0; const ok = (cond, msg) => { console.log((cond ? 'ok   ' : 'FAIL '
     await go('02_levels_empty', () => window.__game.Game.levels(), 1200);
     ok(await p.$('#scr .empty') !== null, `${vn}: levels empty state`);
     ok(await p.$('#scr .card.locked .lockn') !== null, `${vn}: locked level shows requirement`);
-    ok((await art()).cur === 'map', `${vn}: level select over the map`);
+    ok(['map', 'map2'].includes((await art()).cur), `${vn}: level select over the map (${(await art()).cur})`);
     await go('03_courses_empty', () => window.__game.Game.courses(), 900);
     ok(await p.$('#scr .cnone') !== null, `${vn}: course maker empty state`);
     await go('04_notebook_empty', () => window.__game.Game.notebook(), 1000);
     ok(await p.$('#scr .empty-ink') !== null, `${vn}: notebook empty state`);
     // all five illustrations load
-    const loaded = await p.evaluate(async () => { const A = window.__art; const names = ['title', 'map', 'grimsby', 'diary', 'ending']; const r = await Promise.all(names.map((n) => A.load(n))); return names.map((n, i) => [n, r[i], A.img[n].naturalWidth]); });
+    const loaded = await p.evaluate(async () => { const A = window.__art; const names = ['title', 'map', 'map2', 'grimsby', 'diary', 'ending']; const r = await Promise.all(names.map((n) => A.load(n))); return names.map((n, i) => [n, r[i], A.img[n].naturalWidth]); });
     for (const [n, r, w] of loaded) ok(r && w > 0, `${vn}: image ${n} loaded (${w}px)`);
     ok(!bad.length, `${vn}: no failed asset requests ${bad.join(' ')}`);
     // progress: unlocks, new badges, equipped, locked paper
@@ -104,7 +104,7 @@ let fails = 0; const ok = (cond, msg) => { console.log((cond ? 'ok   ' : 'FAIL '
     ok((await art()).cur === 'ending' && await p.$('#scr .roll') !== null, `${vn}: ending illustration + credits roll`);
     await go('26_title_back', () => window.__game.Game.title(), 900);
     // graceful fallback: a broken image path leaves the 3D scene and no errors
-    const fall = await p.evaluate(async () => { const A = window.__art; A.st.map = 'fail'; A.set(null); window.__game.Game.levels(); const r = { cur: A.cur }; A.st.map = 'ok'; return r; });
+    const fall = await p.evaluate(async () => { const A = window.__art; A.st.map = A.st.map2 = 'fail'; A.set(null); window.__game.Game.levels(); const r = { cur: A.cur }; A.st.map = A.st.map2 = 'ok'; return r; });
     ok(fall.cur === null, `${vn}: failed image falls back to the 3D scene`);
     ok(!errs.length, `${vn}: no console errors ${errs.join('\n')}`);
     await ctx.close();
