@@ -25,7 +25,7 @@ Menus: arrows/WASD + Enter, Tab, mouse, gamepad or touch. On a phone, turn it si
 
 ## Repo
 - `src.html` — the source of truth (artifact body). `index.html` is generated from it by `tools/build-index.sh`.
-- `assets/` — storybook illustrations (title, map, Principal Grimsby, diary, ending) four painted sky panoramas (day, sunset, night, rain) for the outdoor levels and the windows, the big level map (`pf_map2`), and `assets/ui/` — hand-drawn portraits of everyone who talks and a picture for every plane skin.
+- `assets/` — storybook illustrations (title, map, Principal Grimsby, diary, ending) four painted sky panoramas (day, sunset, night, rain) for the outdoor levels and the windows, the big level map (`pf_map2`), and `assets/ui/` — hand-drawn portraits of everyone who talks and a picture for every plane skin. `assets/video/pfv_finale.mp4` is the storybook clip that plays after the Schoolyard, before the ending.
 - `tools/` — Playwright test harness.
 - `CLAUDE.md` — the full guide for continuing development with Claude.
 
@@ -39,6 +39,7 @@ node menus.js desktop         # every menu/state, focus ring, all 5 images load 
 node menus.js mobile
 node mobile.js                # 390×844, 844×390, 768×1024: overflow, HUD vs touch controls, rotate prompt
 node sky.js yard,roof,rain     # painted skies load and fade in → tools/shots/sky_*
+node finale.js                # the finale clip after the Schoolyard (+ blocked fallback)
 node gfx2.js                  # portraits, painted skins, map pins (+ a run with the art blocked) → tools/shots/g2_*
 ```
 
