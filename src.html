@@ -9853,7 +9853,7 @@ const MAP_PINS = { class: [12, 32], corridor: [17, 41], library: [8.5, 43], cant
 .res .dpage.hasface { display: grid; grid-template-columns: auto 1fr; gap: 0 10px; align-items: start; } .res .dpage.hasface > .face { grid-row: span 2; margin-top: 6px; }
 .ovt.hasface { display: flex; align-items: center; gap: 12px; }
 #hSpecial.hasface { padding-left: 70px; min-height: 54px; } #hSpecial > .face { position: absolute; left: 8px; top: -12px; width: 54px; height: 62px; }
-#hQuest .face { width: 34px; height: 40px; padding: 2px 2px 6px; margin: -6px 8px -6px -4px; } #hQuest .face::after { display: none; }
+#hQuest .face { animation: none; /* re-attached every frame after the HUD rewrites the tag: a pop-in would restart forever */ width: 34px; height: 40px; padding: 2px 2px 6px; margin: -6px 8px -6px -4px; } #hQuest .face::after { display: none; }
 /* Mia's notes and the boss intro */
 .story > .face.corner { position: absolute; right: 18px; top: -18px; width: 86px; height: 98px; transform: rotate(5deg); }
 .bossintro .bi-face { display: flex; gap: 14px; align-items: center; } .bossintro .bi-face .face { width: 86px; height: 98px; transform: rotate(-5deg); }
