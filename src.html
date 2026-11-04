@@ -10074,6 +10074,19 @@ const FINALE = { mp4: 'assets/video/pfv_finale.mp4', poster: 'assets/video/pfv_f
 @media (max-height: 520px) { #finale .fr { width: min(100%, calc((100vh - 24px) * 16 / 9)); padding: 6px 6px 22px; } #finale .cap { font-size: 14px; bottom: 2px; } #finale .skip { top: 12px; right: 12px; } }
 .nb-end { display: inline-flex; align-items: center; gap: 10px; } .nb-end img { width: 64px; height: 36px; object-fit: cover; border: 2px solid var(--ink); border-radius: 3px; }
 @media (prefers-reduced-motion: reduce) { #finale { transition: none; } }
+#bellclip { position: fixed; inset: 0; z-index: 45; display: none; place-items: center; background: #0b0806; padding: max(12px, env(safe-area-inset-top, 0px)) max(12px, env(safe-area-inset-right, 0px)) max(12px, env(safe-area-inset-bottom, 0px)) max(12px, env(safe-area-inset-left, 0px)); box-sizing: border-box; opacity: 0; transition: opacity 0.35s ease; cursor: pointer; }
+#bellclip.on { display: grid; } #bellclip.vis { opacity: 1; }
+#bellclip .fr { position: relative; width: min(100%, calc((100vh - 64px) * 16 / 9)); aspect-ratio: 16 / 9; background: #fffdf6; padding: 10px 10px 30px; box-sizing: border-box; transform: rotate(-0.6deg); box-shadow: 0 20px 50px rgba(0, 0, 0, 0.6); }
+#bellclip .fr::before, #bellclip .fr::after { content: ""; position: absolute; top: -10px; width: 90px; height: 22px; background: rgba(242, 207, 106, 0.75); box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2); }
+#bellclip .fr::before { left: 8%; transform: rotate(-5deg); } #bellclip .fr::after { right: 8%; transform: rotate(4deg); }
+#bellclip video { display: block; width: 100%; height: 100%; object-fit: cover; background: #1a120c; }
+#bellclip .cap { position: absolute; left: 14px; bottom: 5px; font-family: var(--f-hand); font-size: 18px; color: var(--ink-2); }
+#bellclip .skip { position: absolute; right: 20px; top: 20px; min-height: 44px; opacity: 0.88; z-index: 1; } #bellclip .skip:hover, #bellclip .skip:focus-visible { opacity: 1; }
+#bellclip .ld { position: absolute; inset: 10px 10px 30px; display: grid; place-items: center; font-family: var(--f-hand); font-size: 24px; color: var(--paper); pointer-events: none; transition: opacity 0.2s; }
+#bellclip.playing .ld { opacity: 0; }
+@media (max-height: 520px) { #bellclip .fr { width: min(100%, calc((100vh - 24px) * 16 / 9)); padding: 6px 6px 22px; } #bellclip .cap { font-size: 14px; bottom: 2px; } #bellclip .skip { top: 12px; right: 12px; } }
+.nb-end { display: inline-flex; align-items: center; gap: 10px; } .nb-end img { width: 64px; height: 36px; object-fit: cover; border: 2px solid var(--ink); border-radius: 3px; }
+@media (prefers-reduced-motion: reduce) { #bellclip { transition: none; } }
 `;
   document.body.appendChild(st);
   const el = document.createElement('div'); el.id = 'finale'; el.setAttribute('role', 'dialog'); el.setAttribute('aria-label', 'The ending');
@@ -10081,7 +10094,7 @@ const FINALE = { mp4: 'assets/video/pfv_finale.mp4', poster: 'assets/video/pfv_f
   document.body.appendChild(el);
 }
 const Finale = {
-  v: null, on: false, done: null, force: null, st: 'idle', timer: 0,
+  v: null, on: false, done: null, force: null, st: 'idle', timer: 0, elId: 'finale', src: FINALE.mp4, seenKey: 'finaleSeen',
   // tests can force it on/off; otherwise: no reduced motion, no data saver / 2G
   allowed(replay) {
     if (this.force != null) return this.force;
@@ -10094,18 +10107,18 @@ const Finale = {
     const v = this.v = document.createElement('video');
     v.preload = 'auto'; v.playsInline = true; v.setAttribute('playsinline', ''); v.disablePictureInPicture = true; v.controls = false;
     v.addEventListener('error', () => { this.st = 'fail'; if (this.on) this.finish(); });
-    v.addEventListener('playing', () => { this.st = 'playing'; $('finale').classList.add('playing'); });
+    v.addEventListener('playing', () => { this.st = 'playing'; $(this.elId).classList.add('playing'); });
     v.addEventListener('ended', () => this.finish());
-    v.src = FINALE.mp4; v.load();
-    $('finale').querySelector('.fr').prepend(v);
+    v.src = this.src; v.load();
+    $(this.elId).querySelector('.fr').prepend(v);
   },
   play(done, replay) {
     if (this.on) return;
     this.done = done;
     if (!this.allowed(replay) || this.st === 'fail') return done();
     this.preload(); const v = this.v; if (!v) return done();
-    this.on = true; this.st = 'starting'; const el = $('finale'); el.classList.remove('playing'); el.classList.add('on'); requestAnimationFrame(() => el.classList.add('vis'));
-    UI.show(''); UI.state = 'finale'; this._prev = { c: UI.onConfirm, b: UI.back }; UI.onConfirm = UI.back = () => this.finish();
+    this.on = true; this.st = 'starting'; const el = $(this.elId); el.classList.remove('playing'); el.classList.add('on'); requestAnimationFrame(() => el.classList.add('vis'));
+    UI.show(''); UI.state = this.elId; this._prev = { c: UI.onConfirm, b: UI.back }; UI.onConfirm = UI.back = () => this.finish();
     if (Audio.music) { this._mus = Audio.music.gain.value; Audio.music.gain.value = 0; }
     const S = Store.data.settings; v.volume = clamp(S.sfx, 0, 1); v.muted = !(S.sfx > 0) || !Audio.ctx;
     try { v.currentTime = 0; } catch (e) {}
@@ -10116,9 +10129,9 @@ const Finale = {
   finish() {
     if (!this.on) return; this.on = false; clearTimeout(this.timer);
     const v = this.v; if (v) { try { v.pause(); } catch (e) {} }
-    if (this.st === 'playing' || (v && v.currentTime > 0.5)) { Store.data.finaleSeen = 1; Store.save(); }
+    if (this.st === 'playing' || (v && v.currentTime > 0.5)) { Store.data[this.seenKey] = 1; Store.save(); }
     if (this.st !== 'fail') this.st = 'idle';
-    const el = $('finale'); el.classList.remove('vis', 'playing'); setTimeout(() => { if (!this.on) el.classList.remove('on'); }, 360);
+    const el = $(this.elId); el.classList.remove('vis', 'playing'); setTimeout(() => { if (!this.on) el.classList.remove('on'); }, 360);
     if (this._prev) { UI.onConfirm = this._prev.c; UI.back = this._prev.b; }
     Audio.setVolumes && Audio.setVolumes();
     const d = this.done; this.done = null; if (d) d();
@@ -10127,8 +10140,8 @@ const Finale = {
 window.__finale = Finale;
 {
   $('finale').addEventListener('click', (e) => { e.preventDefault(); Finale.finish(); });
-  window.addEventListener('keydown', (e) => { if (Finale.on) { e.preventDefault(); e.stopPropagation(); Finale.finish(); } }, true);
-  window.addEventListener('touchstart', () => { if (Finale.on) Finale.finish(); }, { passive: true, capture: true });
+  window.addEventListener('keydown', (e) => { for (const C of [Finale, window.__bell]) if (C && C.on) { e.preventDefault(); e.stopPropagation(); C.finish(); } }, true);
+  window.addEventListener('touchstart', () => { for (const C of [Finale, window.__bell]) if (C && C.on) C.finish(); }, { passive: true, capture: true });
   // load when the yard starts (story only)
   const _begin = Game.begin;
   Game.begin = function () { const r = _begin.apply(this, arguments); const L = LEVELS[this.li]; if (L && L.id === 'yard' && !this.practice && !this.daily && !this.mp && !this.customDef) Finale.preload(); return r; };
@@ -10137,7 +10150,7 @@ window.__finale = Finale;
   Game.acts.ending = () => Finale.play(() => _end());
   // no 3D frames behind the clip
   const _r = Game.render;
-  Game.render = function () { if (Finale.on) return; return _r.apply(this, arguments); };
+  Game.render = function () { if (Finale.on || (window.__bell && window.__bell.on)) return; return _r.apply(this, arguments); };
   // the Notebook: watch it again once seen
   const _nb = Game.notebook;
   Game.notebook = function () {
@@ -10173,6 +10186,34 @@ if (typeof Photo !== 'undefined' && Photo.doSnap) {
     const r = _ds.apply(this, arguments);
     if (IN_ARTIFACT) { const a = document.querySelector('#phShot a[download]'); if (a) a.remove(); }
     return r;
+  };
+}
+
+
+// ═════════ v16: “MISSED THE BELL” — a clip when the clock runs out ═════════
+// assets/video/pfv_bell.mp4 (7.9 s): the plane leaves Sam's window, the clock goes 3:10 → 3:30, the bell rings, the yard
+// empties, the plane drifts down, Sam picks it up, smiles and refolds it. The only fail the clock causes is Time attack's
+// “Time’s up!” (`failRun`), so it plays there, before the retry card — at most once per level per session. Same player,
+// rules and fallbacks as the finale clip (`Finale`): loaded when a Time-attack run starts, straight to the card under
+// reduced motion, data saver, a start slower than 0.5 s or an error.
+const BELL = { mp4: 'assets/video/pfv_bell.mp4', poster: 'assets/video/pfv_bell.webp' };
+const Bell = Object.assign(Object.create(Finale), { v: null, on: false, done: null, force: null, st: 'idle', timer: 0, elId: 'bellclip', src: BELL.mp4, seenKey: 'bellSeen', shown: new Set() });
+window.__bell = Bell;
+{
+  const el = document.createElement('div'); el.id = 'bellclip'; el.setAttribute('role', 'dialog'); el.setAttribute('aria-label', 'Missed the bell');
+  el.innerHTML = `<div class="fr"><div class="ld">🔔 …</div><span class="cap">3:30 pm · the bell</span><button class="btn small skip" id="bellSkip">Skip ›</button></div>`;
+  document.body.appendChild(el);
+  el.addEventListener('click', (e) => { e.preventDefault(); Bell.finish(); });
+  // preload when a Time-attack story run starts
+  const _begin = Game.begin;
+  Game.begin = function () { const r = _begin.apply(this, arguments); const L = LEVELS[this.li]; if (this.chal === 'time' && L && !Bell.shown.has(L.id)) Bell.preload(); return r; };
+  const _fail = Game.failRun;
+  Game.failRun = function (msg) {
+    const L = LEVELS[this.li], id = L && L.id;
+    if (this.chal !== 'time' || !id || Bell.shown.has(id)) return _fail.call(this, msg);
+    Bell.shown.add(id);
+    this.mode = 'results'; document.body.classList.remove('playing'); $('hud').hidden = true;
+    Bell.play(() => { $('hud').hidden = false; _fail.call(this, msg); });
   };
 }
 
