@@ -37,6 +37,7 @@ h1, h2, h3 { margin: 0; font-weight: 400; text-wrap: balance; }
 #title { align-items: center; }
 .title-wrap { max-width: 520px; width: 100%; display: flex; flex-direction: column; gap: 22px; margin-left: clamp(0px, 6vw, 90px); }
 .logo { font-family: var(--f-hand); font-size: clamp(56px, 11vw, 112px); line-height: 0.85; color: var(--paper); text-shadow: 0 3px 0 rgba(0, 0, 0, 0.35), 0 10px 30px rgba(0, 0, 0, 0.35); transform: rotate(-3deg); }
+.logo .logo-art { display: inline-block; vertical-align: bottom; width: auto; height: auto; max-width: min(100%, 520px); max-height: 30vh; filter: drop-shadow(0 6px 14px rgba(0, 0, 0, 0.45)); }
 .logo small { display: block; font-size: 0.34em; color: var(--sun-2); margin-top: 10px; transform: rotate(1.5deg); }
 .menu { display: flex; flex-direction: column; gap: 10px; width: min(320px, 100%); }
 .btn {
@@ -4337,7 +4338,7 @@ const Game = {
     if (!this.attract || this.li !== 0) this.loadLevel(0, true);
     const cont = Store.data.unlocked > 1 && Store.data.unlocked <= LEVELS.length;
     UI.show(`<div class="title-wrap">
-      <div class="logo">Paper Flight<small>a note for Mia</small></div><div class="byline">a game by Diego Danylov</div>
+      <div class="logo"><img class="logo-art" src="assets/pf_logo.webp" alt="Paper Flight" width="1100" height="512" onerror="this.replaceWith('Paper Flight')"><small>a note for Mia</small></div><div class="byline">a game by Diego Danylov</div>
       <div class="menu">
         <button class="btn" data-nav data-act="play" data-def="1">${cont ? 'Continue' : 'Start the story'} <span class="k">${cont ? LEVELS[Store.data.unlocked - 1].name : 'Classroom 5B'}</span></button>
         ${Store.data.unlocked > 1 || Store.totalStars() ? '<button class="btn" data-nav data-act="newGame">New game <span class="k">start over from level 1</span></button>' : ''}
